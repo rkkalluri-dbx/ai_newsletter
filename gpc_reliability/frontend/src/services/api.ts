@@ -119,9 +119,10 @@ export const milestonesApi = {
     apiClient.get('/milestones', { params }),
   get: (id: string) => apiClient.get(`/milestones/${id}`),
   complete: (id: string, actual_date?: string) => {
-    // Default to today's date in local timezone if not provided
-    const dateToUse = actual_date || new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
-    return apiClient.post(`/milestones/${id}/complete`, { actual_date: dateToUse });
+    // Let the server determine the completion date to avoid timezone issues
+    // Only send actual_date if explicitly provided
+    const body = actual_date ? { actual_date } : {};
+    return apiClient.post(`/milestones/${id}/complete`, body);
   },
   update: (id: string, data: Record<string, unknown>) => apiClient.patch(`/milestones/${id}`, data),
   getOverdue: (limit?: number) => apiClient.get('/milestones/overdue', { params: { limit } }),

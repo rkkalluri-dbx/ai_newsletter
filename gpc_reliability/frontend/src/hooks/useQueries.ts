@@ -308,8 +308,8 @@ export function useCompleteMilestone() {
       // Snapshot previous milestones data for rollback
       const previousMilestones = queryClient.getQueriesData({ queryKey: ['milestones'] });
 
-      // Optimistically update milestone to completed
-      const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
+      // Optimistically update milestone to completed status only
+      // Don't set actual_date here - let the server provide the correct date to avoid timezone issues
       queryClient.setQueriesData({ queryKey: ['milestones'] }, (old: unknown) => {
         if (!old || typeof old !== 'object') return old;
         const data = old as { data?: Array<{ milestone_id?: string; id?: string; completed?: boolean; actual_date?: string | null }> };
@@ -318,7 +318,7 @@ export function useCompleteMilestone() {
           ...data,
           data: data.data.map((m) =>
             (m.milestone_id === id || m.id === id)
-              ? { ...m, completed: true, actual_date: todayLocal }
+              ? { ...m, completed: true }
               : m
           ),
         };
