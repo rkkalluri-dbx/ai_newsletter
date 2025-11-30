@@ -41,7 +41,8 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: '#9e9e9e',
 };
 
-const REGIONS = ['Metro', 'North', 'South', 'Coastal', 'Mountain'];
+// Regions match actual values in database
+const REGIONS = ['Augusta Area', 'Central Georgia', 'Coastal', 'Coastal Georgia', 'East Georgia', 'Metro Atlanta', 'North Georgia', 'South Georgia', 'West Georgia'];
 const STATUSES = ['authorized', 'assigned_to_vendor', 'design_submitted', 'qa_qc', 'approved', 'construction_ready'];
 const PRIORITIES = ['critical', 'high', 'normal', 'low'];
 

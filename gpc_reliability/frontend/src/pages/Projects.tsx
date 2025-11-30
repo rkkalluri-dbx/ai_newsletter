@@ -51,7 +51,8 @@ const PRIORITY_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'err
   low: 'default',
 };
 
-const REGIONS = ['Metro', 'North', 'South', 'Coastal', 'Mountain'];
+// Regions match actual values in database
+const REGIONS = ['Augusta Area', 'Central Georgia', 'Coastal', 'Coastal Georgia', 'East Georgia', 'Metro Atlanta', 'North Georgia', 'South Georgia', 'West Georgia'];
 // Statuses match backend ProjectStatus.ALL
 const STATUSES = ['authorized', 'assigned_to_vendor', 'design_submitted', 'qa_qc', 'approved', 'construction_ready'];
 // Priorities match backend Priority.ALL
