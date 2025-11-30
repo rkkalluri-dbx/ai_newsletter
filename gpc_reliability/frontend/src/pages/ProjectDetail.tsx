@@ -194,7 +194,7 @@ export default function ProjectDetail() {
             <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
               <Chip
                 size="small"
-                label={project.status.replace('_', ' ')}
+                label={(project.status || 'unknown').replace('_', ' ')}
                 color={STATUS_COLORS[project.status] || 'default'}
               />
               <Chip
@@ -402,7 +402,7 @@ export default function ProjectDetail() {
                   </Box>
                   <Box sx={{ flexGrow: 1 }}>
                     <Typography variant="body2" fontWeight="medium">
-                      {event.event_type.replace('_', ' ')}
+                      {(event.event_type || 'Unknown').replace('_', ' ')}
                     </Typography>
                     {event.details && (
                       <Typography variant="body2" color="text.secondary">

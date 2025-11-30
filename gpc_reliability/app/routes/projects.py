@@ -358,14 +358,12 @@ def get_project_history(project_id):
     history = [
         {
             "id": row["id"],
-            "action": row["action"],
-            "field_name": row.get("field_name"),
+            "event_type": row["action"],  # Frontend expects event_type
             "old_value": row.get("old_value"),
             "new_value": row.get("new_value"),
-            "changes": row.get("changes"),
-            "user_id": row.get("user_id"),
-            "user_email": row.get("user_email"),
-            "created_at": row["created_at"].isoformat() if row.get("created_at") else None
+            "details": row.get("changes") or row.get("field_name"),
+            "changed_by": row.get("user_email"),  # Frontend expects changed_by
+            "changed_at": row["created_at"].isoformat() if row.get("created_at") else None  # Frontend expects changed_at
         }
         for row in rows
     ]
