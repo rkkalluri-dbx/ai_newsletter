@@ -36,23 +36,23 @@ import { useAlerts, useAlertStats, useAcknowledgeAlert, useBulkAcknowledgeAlerts
 import { AlertListParams } from '../services/api';
 import AlertFormModal from '../components/alerts/AlertFormModal';
 
-// Severity color mapping
+// Severity color mapping - matches backend AlertSeverity values
 const SEVERITY_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
   critical: 'error',
-  high: 'warning',
-  medium: 'info',
-  low: 'default',
+  warning: 'warning',
+  info: 'info',
 };
 
 const SEVERITY_ICONS: Record<string, React.ReactElement> = {
   critical: <ErrorIcon fontSize="small" />,
-  high: <WarningIcon fontSize="small" />,
-  medium: <InfoIcon fontSize="small" />,
-  low: <InfoIcon fontSize="small" />,
+  warning: <WarningIcon fontSize="small" />,
+  info: <InfoIcon fontSize="small" />,
 };
 
-const SEVERITIES = ['critical', 'high', 'medium', 'low'];
-const ALERT_TYPES = ['overdue_milestone', 'budget_exceeded', 'vendor_performance', 'status_change'];
+// Severities match backend AlertSeverity.ALL
+const SEVERITIES = ['info', 'warning', 'critical'];
+// Alert types match backend AlertType.ALL
+const ALERT_TYPES = ['milestone_overdue', 'milestone_approaching', 'status_change', 'revision_added'];
 
 interface AlertItem {
   alert_id: string;

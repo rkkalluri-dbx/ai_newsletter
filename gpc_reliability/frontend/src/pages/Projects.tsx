@@ -33,26 +33,29 @@ import { useProjects, useVendors } from '../hooks/useQueries';
 import { projectsApi, ProjectListParams } from '../services/api';
 import ProjectFormModal from '../components/projects/ProjectFormModal';
 
-// Status color mapping
+// Status color mapping - matches backend ProjectStatus values
 const STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-  planning: 'info',
-  in_progress: 'warning',
-  on_hold: 'default',
-  completed: 'success',
-  cancelled: 'error',
+  authorized: 'info',
+  assigned_to_vendor: 'primary',
+  design_submitted: 'warning',
+  qa_qc: 'secondary',
+  approved: 'success',
+  construction_ready: 'success',
 };
 
-// Priority color mapping
+// Priority color mapping - matches backend Priority values
 const PRIORITY_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
   critical: 'error',
   high: 'warning',
-  medium: 'info',
+  normal: 'info',
   low: 'default',
 };
 
 const REGIONS = ['Metro', 'North', 'South', 'Coastal', 'Mountain'];
-const STATUSES = ['planning', 'in_progress', 'on_hold', 'completed', 'cancelled'];
-const PRIORITIES = ['critical', 'high', 'medium', 'low'];
+// Statuses match backend ProjectStatus.ALL
+const STATUSES = ['authorized', 'assigned_to_vendor', 'design_submitted', 'qa_qc', 'approved', 'construction_ready'];
+// Priorities match backend Priority.ALL
+const PRIORITIES = ['low', 'normal', 'high', 'critical'];
 
 interface Project {
   project_id: string;

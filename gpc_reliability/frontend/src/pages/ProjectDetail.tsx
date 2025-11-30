@@ -36,19 +36,20 @@ import {
 import { useState, useRef } from 'react';
 import { useProject, useProjectHistory, useMilestones, useCompleteMilestone } from '../hooks/useQueries';
 
-// Status and priority colors
+// Status and priority colors - matches backend model values
 const STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-  planning: 'info',
-  in_progress: 'warning',
-  on_hold: 'default',
-  completed: 'success',
-  cancelled: 'error',
+  authorized: 'info',
+  assigned_to_vendor: 'primary',
+  design_submitted: 'warning',
+  qa_qc: 'secondary',
+  approved: 'success',
+  construction_ready: 'success',
 };
 
 const PRIORITY_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
   critical: 'error',
   high: 'warning',
-  medium: 'info',
+  normal: 'info',
   low: 'default',
 };
 

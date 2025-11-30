@@ -31,13 +31,14 @@ import {
   useDashboardRecentActivity,
 } from '../hooks/useQueries';
 
-// Color palette for charts
+// Color palette for charts - matches backend ProjectStatus values
 const STATUS_COLORS: Record<string, string> = {
-  planning: '#2196F3',
-  in_progress: '#FF9800',
-  on_hold: '#9E9E9E',
-  completed: '#4CAF50',
-  cancelled: '#F44336',
+  authorized: '#2196F3',
+  assigned_to_vendor: '#9C27B0',
+  design_submitted: '#FF9800',
+  qa_qc: '#00BCD4',
+  approved: '#4CAF50',
+  construction_ready: '#8BC34A',
 };
 
 const REGION_COLORS = ['#1976D2', '#388E3C', '#F57C00', '#7B1FA2', '#C2185B'];

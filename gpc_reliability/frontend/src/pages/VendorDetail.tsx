@@ -36,16 +36,13 @@ import { useState } from 'react';
 import { useVendor, useVendorMetrics, useVendorProjects } from '../hooks/useQueries';
 import VendorFormModal from '../components/vendors/VendorFormModal';
 
-// Status color mapping
+// Status color mapping - matches backend ProjectStatus values
 const STATUS_COLORS: Record<string, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
-  planning: 'info',
-  in_progress: 'warning',
-  on_hold: 'default',
-  completed: 'success',
-  cancelled: 'error',
-  design_in_progress: 'warning',
-  design_review: 'info',
-  customer_approval: 'warning',
+  authorized: 'info',
+  assigned_to_vendor: 'primary',
+  design_submitted: 'warning',
+  qa_qc: 'secondary',
+  approved: 'success',
   construction_ready: 'success',
 };
 
