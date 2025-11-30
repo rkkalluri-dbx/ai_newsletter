@@ -300,7 +300,40 @@ export function useCompleteMilestone() {
   return useMutation({
     mutationFn: ({ id, actual_date }: { id: string; actual_date?: string }) =>
       milestonesApi.complete(id, actual_date),
-    onSuccess: () => {
+    onMutate: async ({ id }) => {
+      // Cancel outgoing refetches to prevent overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: ['milestones'] });
+
+      // Snapshot previous milestones data for rollback
+      const previousMilestones = queryClient.getQueriesData({ queryKey: ['milestones'] });
+
+      // Optimistically update milestone to completed
+      queryClient.setQueriesData({ queryKey: ['milestones'] }, (old: unknown) => {
+        if (!old || typeof old !== 'object') return old;
+        const data = old as { data?: Array<{ milestone_id?: string; id?: string; completed?: boolean; actual_date?: string | null }> };
+        if (!data.data) return old;
+        return {
+          ...data,
+          data: data.data.map((m) =>
+            (m.milestone_id === id || m.id === id)
+              ? { ...m, completed: true, actual_date: new Date().toISOString().split('T')[0] }
+              : m
+          ),
+        };
+      });
+
+      return { previousMilestones };
+    },
+    onError: (_err, _vars, context) => {
+      // Rollback on error
+      if (context?.previousMilestones) {
+        context.previousMilestones.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    onSettled: () => {
+      // Refetch after mutation settles to ensure server state
       queryClient.invalidateQueries({ queryKey: ['milestones'] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
