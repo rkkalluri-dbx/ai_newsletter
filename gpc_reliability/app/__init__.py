@@ -59,9 +59,15 @@ def create_app(config_name: str = "development") -> Flask:
     @app.route("/api/v1/debug")
     def debug_info():
         import traceback
+        from datetime import date, datetime
         debug = {
             "status": "ok",
             "database_check": None,
+            "server_date": {
+                "date_today": date.today().isoformat(),
+                "datetime_now": datetime.now().isoformat(),
+                "datetime_utcnow": datetime.utcnow().isoformat(),
+            },
             "env_check": {
                 "DATABRICKS_SERVER_HOSTNAME": bool(os.environ.get("DATABRICKS_SERVER_HOSTNAME")),
                 "DATABRICKS_HTTP_PATH": bool(os.environ.get("DATABRICKS_HTTP_PATH")),

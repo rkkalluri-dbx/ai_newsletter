@@ -306,6 +306,29 @@ def get_overdue_milestones():
     })
 
 
+@milestones_bp.route("/<milestone_id>/reset", methods=["POST"])
+def reset_milestone(milestone_id):
+    """Reset a milestone's completion status (for testing only)."""
+    query = f"SELECT * FROM {table_name('milestones')} WHERE id = '{milestone_id}'"
+    rows = db.execute(query)
+
+    if not rows:
+        return jsonify({"error": "Milestone not found"}), 404
+
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    update_query = f"""
+        UPDATE {table_name('milestones')}
+        SET actual_date = NULL,
+            is_overdue = CASE WHEN expected_date < CURRENT_DATE() THEN true ELSE false END,
+            days_overdue = CASE WHEN expected_date < CURRENT_DATE() THEN DATEDIFF(CURRENT_DATE(), expected_date) ELSE 0 END,
+            updated_at = '{now}'
+        WHERE id = '{milestone_id}'
+    """
+    db.execute_write(update_query)
+
+    return get_milestone(milestone_id)
+
+
 @milestones_bp.route("/upcoming", methods=["GET"])
 def get_upcoming_milestones():
     """Get milestones due within the specified days.
