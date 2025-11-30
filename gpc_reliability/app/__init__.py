@@ -55,6 +55,31 @@ def create_app(config_name: str = "development") -> Flask:
     def health():
         return {"status": "healthy", "service": "gpc-reliability-tracker"}
 
+    # Debug endpoint to check database connectivity
+    @app.route("/api/v1/debug")
+    def debug_info():
+        import traceback
+        debug = {
+            "status": "ok",
+            "database_check": None,
+            "env_check": {
+                "DATABRICKS_SERVER_HOSTNAME": bool(os.environ.get("DATABRICKS_SERVER_HOSTNAME")),
+                "DATABRICKS_HTTP_PATH": bool(os.environ.get("DATABRICKS_HTTP_PATH")),
+                "DATABRICKS_CATALOG": os.environ.get("DATABRICKS_CATALOG"),
+                "DATABRICKS_SCHEMA": os.environ.get("DATABRICKS_SCHEMA"),
+            },
+            "static_folder": app.static_folder,
+            "static_folder_exists": os.path.exists(app.static_folder) if app.static_folder else False,
+        }
+        try:
+            # Test database connection
+            result = db.execute("SELECT 1 as test")
+            debug["database_check"] = "connected" if result else "no result"
+        except Exception as e:
+            debug["database_check"] = f"error: {str(e)}"
+            debug["database_traceback"] = traceback.format_exc()
+        return debug
+
     # API info endpoint
     @app.route("/api")
     def api_info():
