@@ -1,0 +1,25 @@
+command:
+  - "gunicorn"
+  - "wsgi:app"
+  - "--bind"
+  - "0.0.0.0:8000"
+  - "--workers"
+  - "2"
+  - "--timeout"
+  - "120"
+
+env:
+  - name: FLASK_ENV
+    value: production
+  - name: FLASK_APP
+    value: wsgi:app
+  - name: FLASK_SECRET_KEY
+    value: gpc-reliability-prod-secret-key-2024
+  - name: DATABRICKS_SERVER_HOSTNAME
+    value: dbc-2647a0d2-b28d.cloud.databricks.com
+  - name: DATABRICKS_HTTP_PATH
+    value: /sql/1.0/warehouses/84823cd491f18a44
+  - name: DATABRICKS_CATALOG
+    value: main
+  - name: DATABRICKS_SCHEMA
+    value: gpc_reliability

@@ -1,0 +1,90 @@
+Core Request:
+Build a comprehensive project tracking and scheduling application for Georgia Power's reliability projects that manages 700+ projects across 15+ external vendors.
+Key Requirements:
+1. Project Management:
+Track 700+ active reliability projects
+Full CRUD operations (Create, Read, Update, Delete)
+Project details including:
+Project name, code, description
+Project type, status, priority
+Vendor assignment
+Start date, planned end date, actual end date
+Budget tracking
+Location information
+Assigned personnel
+2. Visual Timeline (Gantt Chart):
+Interactive Gantt chart showing all projects
+Color-coded status indicators:
+Red: Delayed projects
+Orange: At-risk projects
+Blue: In-progress projects
+Green: Completed projects
+Progress bars showing completion percentage
+Filterable by vendor, status, and date range
+3. Vendor Management:
+Track 15+ external vendors
+Vendor contact information
+Performance metrics including:
+Total projects
+Completion rate
+On-time delivery percentage
+Performance trends
+4. Automated Alerts:
+Daily automated checks for:
+Delayed projects
+Budget overruns
+Stale project updates
+Projects without recent activity
+Alert prioritization
+Alert acknowledgment and resolution workflow
+5. Smart Action Items:
+AI-powered recommendations for next best actions
+Prioritized by urgency and impact
+Auto-generated based on project conditions
+6. Dashboard Analytics:
+Real-time overview showing:
+Total project count
+Delayed projects
+Active alerts
+Completed projects this month
+Projects by status (pie chart)
+Projects by priority (bar chart)
+Budget overview
+7. Technology Stack:
+Backend: Flask (Python), SQLAlchemy, PostgreSQL (Databricks Lakebase)
+Frontend: React 18, Material-UI with Southern Company branding
+Visualization: Recharts, Gantt-Task-React
+Deployment: Databricks Asset Bundles (DABs), Databricks Apps
+Automation: Databricks Jobs for scheduled alerts
+8. Data Import/Export:
+Import existing 700+ projects from Excel/CSV
+Export capabilities for reporting
+Demo mode with synthetic data for testing
+9. Databricks Integration:
+Deploy to Databricks workspace
+Use Databricks SQL for database
+Scheduled jobs for alert generation (daily at 8 AM EST)
+Service principal authentication
+10. User Interface:
+Modern, intuitive UI
+Southern Company branding (colors, logo)
+Responsive design
+Multiple views: Dashboard, Projects, Vendors, Alerts
+Specific Deliverables Requested:
+✅ Flask backend with RESTful API
+✅ React frontend with Material-UI
+✅ PostgreSQL database schema with migrations
+✅ Databricks notebook for alert checking
+✅ Databricks Asset Bundle configuration
+✅ Demo data generator script
+✅ Project import utility
+✅ Comprehensive documentation
+✅ Deployment instructions for Databricks
+Success Criteria:
+Manage 700+ projects efficiently
+Track 15+ vendor performance
+Automated daily alerts
+Visual project timeline
+Smart action recommendations
+Easy data import/export
+Deployable to Databricks

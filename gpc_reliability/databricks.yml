@@ -1,0 +1,55 @@
+bundle:
+  name: gpc-reliability-tracker
+
+sync:
+  include:
+    - app/**
+    - wsgi.py
+    - requirements.txt
+    - app.yaml
+
+variables:
+  environment:
+    description: "Deployment environment"
+    default: dev
+
+targets:
+  dev:
+    mode: development
+    default: true
+    workspace:
+      host: https://dbc-2647a0d2-b28d.cloud.databricks.com
+
+  staging:
+    mode: staging
+    workspace:
+      host: https://dbc-2647a0d2-b28d.cloud.databricks.com
+
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-2647a0d2-b28d.cloud.databricks.com
+
+resources:
+  # Databricks App for hosting the web application
+  apps:
+    reliability_tracker:
+      name: "gpc-reliability-api"
+      description: "GPC Reliability Project Workflow Tracker"
+      source_code_path: .
+
+# Scheduled Jobs commented out for initial POC deployment
+# Will be enabled after database and core features are complete
+#  jobs:
+#    alert-generator:
+#      name: "GPC Reliability - Alert Generator (${var.environment})"
+#      schedule:
+#        quartz_cron_expression: "0 0 6 * * ?"
+#        timezone_id: "America/New_York"
+#      tasks:
+#        - task_key: generate_alerts
+#          python_wheel_task:
+#            package_name: gpc_reliability
+#            entry_point: alert_generator
+#          libraries:
+#            - whl: ./dist/*.whl
