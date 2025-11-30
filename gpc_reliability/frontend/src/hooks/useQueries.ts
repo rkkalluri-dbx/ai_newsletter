@@ -309,6 +309,7 @@ export function useCompleteMilestone() {
       const previousMilestones = queryClient.getQueriesData({ queryKey: ['milestones'] });
 
       // Optimistically update milestone to completed
+      const todayLocal = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local timezone
       queryClient.setQueriesData({ queryKey: ['milestones'] }, (old: unknown) => {
         if (!old || typeof old !== 'object') return old;
         const data = old as { data?: Array<{ milestone_id?: string; id?: string; completed?: boolean; actual_date?: string | null }> };
@@ -317,7 +318,7 @@ export function useCompleteMilestone() {
           ...data,
           data: data.data.map((m) =>
             (m.milestone_id === id || m.id === id)
-              ? { ...m, completed: true, actual_date: new Date().toISOString().split('T')[0] }
+              ? { ...m, completed: true, actual_date: todayLocal }
               : m
           ),
         };
