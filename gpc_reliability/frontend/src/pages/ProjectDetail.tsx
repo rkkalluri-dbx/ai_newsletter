@@ -33,7 +33,7 @@ import {
   AttachMoney as MoneyIcon,
   Timeline as TimelineIcon,
 } from '@mui/icons-material';
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useProject, useProjectHistory, useMilestones, useCompleteMilestone } from '../hooks/useQueries';
 
 // Status and priority colors
@@ -116,6 +116,7 @@ export default function ProjectDetail() {
   const { data: milestonesData, isLoading: milestonesLoading } = useMilestones({ project_id: id });
   const { data: historyData, isLoading: historyLoading } = useProjectHistory(id!);
   const completeMilestone = useCompleteMilestone();
+  const completingMilestoneId = useRef<string | null>(null);
 
   const project: ProjectData | undefined = projectData?.data;
   const milestones: Milestone[] = milestonesData?.data || [];
@@ -140,10 +141,13 @@ export default function ProjectDetail() {
   };
 
   const handleCompleteMilestone = async (milestoneId: string) => {
+    completingMilestoneId.current = milestoneId;
     try {
       await completeMilestone.mutateAsync({ id: milestoneId });
     } catch (err) {
       console.error('Failed to complete milestone:', err);
+    } finally {
+      completingMilestoneId.current = null;
     }
   };
 
@@ -349,7 +353,7 @@ export default function ProjectDetail() {
                               size="small"
                               color="success"
                               onClick={() => handleCompleteMilestone(milestone.milestone_id)}
-                              disabled={completeMilestone.isPending}
+                              disabled={completeMilestone.isPending && completingMilestoneId.current === milestone.milestone_id}
                             >
                               <CheckCircleIcon />
                             </IconButton>

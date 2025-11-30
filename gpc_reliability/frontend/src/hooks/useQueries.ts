@@ -270,6 +270,7 @@ export function useMilestones(params?: { project_id?: string; stage?: string; is
   return useQuery({
     queryKey: queryKeys.milestones(params),
     queryFn: () => milestonesApi.list(params).then((res) => res.data),
+    placeholderData: (previousData) => previousData, // Keep previous data during refetch
   });
 }
 
