@@ -40,16 +40,19 @@ interface ProjectFormModalProps {
   onSuccess?: () => void;
 }
 
-const REGIONS = ['Metro', 'North', 'South', 'Coastal', 'Mountain'];
-const STATUSES = ['planning', 'in_progress', 'on_hold', 'completed', 'cancelled'];
-const PRIORITIES = ['critical', 'high', 'medium', 'low'];
+// Regions match actual values in database
+const REGIONS = ['Augusta Area', 'Central Georgia', 'Coastal', 'Coastal Georgia', 'East Georgia', 'Metro Atlanta', 'North Georgia', 'South Georgia', 'West Georgia'];
+// Statuses match backend ProjectStatus.ALL
+const STATUSES = ['authorized', 'assigned_to_vendor', 'design_submitted', 'qa_qc', 'approved', 'construction_ready'];
+// Priorities match backend Priority.ALL
+const PRIORITIES = ['low', 'normal', 'high', 'critical'];
 
 const initialFormData: ProjectFormData = {
   project_name: '',
   vendor_id: '',
   region: '',
-  status: 'planning',
-  priority: 'medium',
+  status: 'authorized',
+  priority: 'normal',
   start_date: '',
   target_completion_date: '',
   budget: 0,
@@ -79,8 +82,8 @@ export default function ProjectFormModal({
         project_name: project.project_name || '',
         vendor_id: project.vendor_id || '',
         region: project.region || '',
-        status: project.status || 'planning',
-        priority: project.priority || 'medium',
+        status: project.status || 'authorized',
+        priority: project.priority || 'normal',
         start_date: project.start_date || '',
         target_completion_date: project.target_completion_date || '',
         budget: project.budget || 0,
