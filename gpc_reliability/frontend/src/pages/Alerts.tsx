@@ -384,7 +384,7 @@ export default function Alerts() {
                 }}
               >
                 <MenuItem value="">All Statuses</MenuItem>
-                <MenuItem value="false">Unacknowledged</MenuItem>
+                <MenuItem value="false">Pending</MenuItem>
                 <MenuItem value="true">Acknowledged</MenuItem>
               </TextField>
             </Grid>
