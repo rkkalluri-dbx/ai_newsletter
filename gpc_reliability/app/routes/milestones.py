@@ -162,10 +162,15 @@ def complete_milestone(milestone_id):
     if current.get("actual_date"):
         return jsonify({"message": "Milestone already completed"}), 200
 
-    # Get actual date from request or use today
+    # Get actual date from request - ALWAYS use today's date from server to ensure consistency
     data = request.get_json() or {}
-    actual_date = data.get("actual_date", date.today().isoformat())
+    # Use server's today date to avoid timezone issues
+    actual_date = date.today().isoformat()
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Log for debugging
+    import logging
+    logging.info(f"Completing milestone {milestone_id} with actual_date={actual_date}, request_date={data.get('actual_date')}")
 
     update_query = f"""
         UPDATE {table_name('milestones')}
