@@ -61,6 +61,7 @@ const PRIORITIES = ['low', 'normal', 'high', 'critical'];
 interface Project {
   project_id: string;
   project_name: string;
+  vendor_id: string;
   vendor_name: string;
   region: string;
   status: string;
@@ -70,6 +71,8 @@ interface Project {
   budget: number;
   actual_spend: number;
   progress_percentage: number;
+  description?: string;
+  notes?: string;
 }
 
 export default function Projects() {
