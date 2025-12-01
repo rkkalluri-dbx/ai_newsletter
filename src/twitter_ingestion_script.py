@@ -29,6 +29,13 @@ except Exception as e:
 # Changed from DBFS /tmp path to a Unity Catalog volume path
 raw_data_path = "/Volumes/main/default/ai_newsletter_raw_tweets/"
 
+# Bot Detection Configuration (adjust thresholds as needed)
+BOT_DETECTION_ENABLED = True
+BOT_MIN_ACCOUNT_AGE_DAYS = 30      # Accounts newer than this are suspicious
+BOT_MIN_FOLLOWERS = 10              # Accounts with fewer followers are suspicious
+BOT_MAX_FOLLOWING_RATIO = 10        # Following/Followers ratio threshold (10:1)
+BOT_KEYWORDS = ['bot', 'automated', 'auto-tweet', 'auto tweet', 'scheduled tweets']
+
 # Twitter API endpoint for recent search (v2)
 twitter_api_url = "https://api.twitter.com/2/tweets/search/recent"
 
@@ -71,8 +78,10 @@ headers = {
 
 params = {
     "query": query_string,
-    "tweet.fields": "author_id,public_metrics,created_at,lang",  # Added lang field
-    "max_results": 100 # Max results per request
+    "tweet.fields": "author_id,public_metrics,created_at,lang",
+    "expansions": "author_id",  # Get author details
+    "user.fields": "created_at,public_metrics,verified,verified_type,description",  # Author metadata for bot detection
+    "max_results": 100
 }
 
 def fetch_tweets():
@@ -84,10 +93,86 @@ def fetch_tweets():
         print(f"Error fetching tweets: {response.status_code} - {response.text}")
         return []
 
-    data = response.json().get("data", [])
-    tweets = data if isinstance(data, list) else [] # Ensure data is a list
-    print(f"Fetched {len(tweets)} tweets.")
+    response_json = response.json()
+    tweets = response_json.get("data", [])
+
+    if not isinstance(tweets, list):
+        tweets = []
+
+    # Get author/user data from includes section
+    users = {user['id']: user for user in response_json.get("includes", {}).get("users", [])}
+
+    # Attach author metadata to each tweet for bot detection
+    for tweet in tweets:
+        author_id = tweet.get('author_id')
+        if author_id and author_id in users:
+            tweet['author_metadata'] = users[author_id]
+
+    print(f"Fetched {len(tweets)} tweets with author metadata.")
     return tweets
+
+def is_likely_bot(tweet):
+    """
+    Heuristic bot detection based on author metadata.
+
+    Returns True if the tweet is likely from a bot, False if likely human.
+
+    Bot indicators (configurable via constants):
+    - Very new account (< BOT_MIN_ACCOUNT_AGE_DAYS)
+    - Very low followers (< BOT_MIN_FOLLOWERS)
+    - Suspicious follower/following ratio (> BOT_MAX_FOLLOWING_RATIO)
+    - Bot keywords in bio (BOT_KEYWORDS)
+    """
+    # If bot detection is disabled, allow all tweets
+    if not BOT_DETECTION_ENABLED:
+        return False
+
+    author = tweet.get('author_metadata', {})
+
+    # If no author metadata, be conservative and allow the tweet
+    if not author:
+        return False
+
+    # Verified accounts are typically not bots (strong signal)
+    if author.get('verified', False) or author.get('verified_type') in ['blue', 'business', 'government']:
+        return False
+
+    # Check account age
+    created_at = author.get('created_at')
+    if created_at:
+        try:
+            from datetime import datetime, timezone
+            account_created = datetime.fromisoformat(created_at.replace('Z', '+00:00'))
+            account_age_days = (datetime.now(timezone.utc) - account_created).days
+
+            # Very new accounts are often bots
+            if account_age_days < BOT_MIN_ACCOUNT_AGE_DAYS:
+                return True
+        except:
+            pass  # If date parsing fails, skip this check
+
+    # Check follower metrics
+    metrics = author.get('public_metrics', {})
+    followers = metrics.get('followers_count', 0)
+    following = metrics.get('following_count', 0)
+
+    # Very low follower count suggests bot
+    if followers < BOT_MIN_FOLLOWERS:
+        return True
+
+    # Suspicious follower ratios (following way more than followers)
+    if following > 100 and followers > 0:
+        ratio = following / followers
+        if ratio > BOT_MAX_FOLLOWING_RATIO:
+            return True
+
+    # Check for bot keywords in description
+    description = author.get('description', '').lower()
+    if any(keyword in description for keyword in BOT_KEYWORDS):
+        return True
+
+    # Default: assume human
+    return False
 
 def land_tweets(tweets_data):
     """Writes fetched tweets to raw data path as JSON files."""
@@ -105,25 +190,41 @@ def land_tweets(tweets_data):
         # dbutils.fs.mkdirs(raw_data_path) # Still use for robustness if UC volume doesn't auto-create sub-paths
 
     landed_count = 0
-    filtered_count = 0
+    filtered_lang = 0
+    filtered_bot = 0
 
     for tweet in tweets_data:
-        # Double-check language filter (safety check in case API filter missed some)
+        # Filter 1: Language check (safety check in case API filter missed some)
         tweet_lang = tweet.get('lang', 'en')  # Default to 'en' if lang field missing
 
         if tweet_lang != 'en':
-            filtered_count += 1
+            filtered_lang += 1
             print(f"⚠️  Filtered out non-English tweet {tweet['id']} (lang: {tweet_lang})")
+            continue
+
+        # Filter 2: Bot detection
+        if is_likely_bot(tweet):
+            filtered_bot += 1
+            author = tweet.get('author_metadata', {})
+            author_name = author.get('username', 'unknown')
+            followers = author.get('public_metrics', {}).get('followers_count', 0)
+            print(f"🤖 Filtered out likely bot tweet {tweet['id']} (author: @{author_name}, followers: {followers})")
             continue
 
         file_name = f"{raw_data_path}tweet_{tweet['id']}_{int(time.time())}.json" # Add timestamp to avoid overwrites
         dbutils.fs.put(file_name, json.dumps(tweet), overwrite=True)
         landed_count += 1
-        print(f"Landed tweet {tweet['id']} to {file_name}")
+        print(f"✅ Landed tweet {tweet['id']} to {file_name}")
 
-    print(f"\n✅ Landed {landed_count} English tweets")
-    if filtered_count > 0:
-        print(f"⚠️  Filtered out {filtered_count} non-English tweets")
+    # Summary
+    print(f"\n{'='*60}")
+    print(f"INGESTION SUMMARY")
+    print(f"{'='*60}")
+    print(f"✅ Landed: {landed_count} tweets from humans")
+    print(f"⚠️  Filtered (language): {filtered_lang} tweets")
+    print(f"🤖 Filtered (bots): {filtered_bot} tweets")
+    print(f"Total fetched: {len(tweets_data)} tweets")
+    print(f"{'='*60}")
 
 # --- Main Execution ---
 if __name__ == "__main__":
