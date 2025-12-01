@@ -19,6 +19,7 @@ bronze_table_name = f"{catalog}.{schema}.tweets"
 tweet_schema = StructType([
     StructField("id", StringType(), True),
     StructField("text", StringType(), True),
+    StructField("lang", StringType(), True),  # Language field for verification
     StructField("public_metrics", StructType([
         StructField("retweet_count", LongType(), True),
         StructField("reply_count", LongType(), True),
@@ -45,8 +46,14 @@ def process_bronze_layer():
         .load(raw_data_path)
     )
 
-    # Apply minimum engagement filter (T005)
-    filtered_tweets_df = raw_tweets_df.filter(col("public_metrics.like_count") >= min_faves_filter)
+    # Apply filters (T005):
+    # 1. Language filter - only English tweets
+    # 2. Minimum engagement filter
+    filtered_tweets_df = (
+        raw_tweets_df
+        .filter((col("lang") == "en") | col("lang").isNull())  # English only (or null for backward compatibility)
+        .filter(col("public_metrics.like_count") >= min_faves_filter)
+    )
 
     # Write the filtered data to the bronze Delta table as a one-shot micro-batch
     query = (

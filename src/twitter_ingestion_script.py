@@ -71,7 +71,7 @@ headers = {
 
 params = {
     "query": query_string,
-    "tweet.fields": "author_id,public_metrics,created_at",
+    "tweet.fields": "author_id,public_metrics,created_at,lang",  # Added lang field
     "max_results": 100 # Max results per request
 }
 
@@ -104,10 +104,26 @@ def land_tweets(tweets_data):
         # Attempt to create the directory anyway, in case it's a permission issue not existence
         # dbutils.fs.mkdirs(raw_data_path) # Still use for robustness if UC volume doesn't auto-create sub-paths
 
+    landed_count = 0
+    filtered_count = 0
+
     for tweet in tweets_data:
+        # Double-check language filter (safety check in case API filter missed some)
+        tweet_lang = tweet.get('lang', 'en')  # Default to 'en' if lang field missing
+
+        if tweet_lang != 'en':
+            filtered_count += 1
+            print(f"⚠️  Filtered out non-English tweet {tweet['id']} (lang: {tweet_lang})")
+            continue
+
         file_name = f"{raw_data_path}tweet_{tweet['id']}_{int(time.time())}.json" # Add timestamp to avoid overwrites
         dbutils.fs.put(file_name, json.dumps(tweet), overwrite=True)
+        landed_count += 1
         print(f"Landed tweet {tweet['id']} to {file_name}")
+
+    print(f"\n✅ Landed {landed_count} English tweets")
+    if filtered_count > 0:
+        print(f"⚠️  Filtered out {filtered_count} non-English tweets")
 
 # --- Main Execution ---
 if __name__ == "__main__":
