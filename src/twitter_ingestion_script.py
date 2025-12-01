@@ -57,7 +57,9 @@ try:
     # Check if table exists before reading
     if spark.catalog.tableExists(search_terms_table):
         search_terms_df = spark.read.format("delta").table(search_terms_table)
-        search_terms = [row.term for row in search_terms_df.collect()]
+        # Only use active search terms
+        search_terms = [row.term for row in search_terms_df.filter("active = true").collect()]
+        print(f"✅ Loaded {len(search_terms)} active search terms from {search_terms_table}")
     else:
         print(f"Table {search_terms_table} does not exist. Using default search terms.")
 except Exception as e:
