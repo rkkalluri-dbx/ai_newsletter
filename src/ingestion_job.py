@@ -9,11 +9,8 @@ raw_data_path = "/Volumes/main/default/ai_newsletter_raw_tweets/"
 min_faves_filter = 10
 
 # The name of the bronze Delta table. Since UC is enabled, we use a 3-level namespace.
-# We'll use the current catalog and a new schema for this project.
-try:
-    catalog = spark.sql("SELECT current_catalog()").collect()[0][0]
-except Exception:
-    catalog = "hive_metastore"
+# Explicitly use 'main' catalog for consistency
+catalog = "main"
 schema = "ai_newsletter_bronze"
 bronze_table_name = f"{catalog}.{schema}.tweets"
 

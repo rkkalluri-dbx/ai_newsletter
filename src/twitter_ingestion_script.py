@@ -37,10 +37,8 @@ twitter_api_url = "https://api.twitter.com/2/tweets/search/recent"
 spark = SparkSession.builder.appName("twitter_ingestion_job").getOrCreate()
 
 # Retrieve search terms from the Delta table
-try:
-    catalog_name = spark.sql("SELECT current_catalog()").collect()[0][0]
-except Exception:
-    catalog_name = "hive_metastore" # Fallback if current_catalog() fails
+# Explicitly use 'main' catalog for consistency
+catalog_name = "main"
 schema_name = "config"
 search_terms_table = f"{catalog_name}.{schema_name}.search_terms"
 

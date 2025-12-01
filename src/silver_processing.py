@@ -16,12 +16,10 @@ from pyspark.sql.types import DoubleType
 import pyspark.sql.functions as F
 
 # --- Configuration ---
-# Bronze table (source)
-try:
-    catalog = spark.sql("SELECT current_catalog()").collect()[0][0]
-except Exception:
-    catalog = "main"
+# Explicitly use 'main' catalog for consistency
+catalog = "main"
 
+# Bronze table (source)
 bronze_schema = "ai_newsletter_bronze"
 bronze_table = f"{catalog}.{bronze_schema}.tweets"
 
