@@ -1,8 +1,17 @@
-# This is a sample Databricks Asset Bundle configuration.
+# Databricks Asset Bundle Configuration for AI Signal Newsletter
 # For details, see https://docs.databricks.com/dev-tools/bundles/index.html
 
 bundle:
-  name: my_databricks_project
+  name: ai_newsletter
+
+targets:
+  default:
+    mode: development
+    workspace:
+      host: https://dbc-2647a0d2-b28d.cloud.databricks.com
+
+  prod:
+    mode: production
 
 resources:
   jobs:
@@ -12,7 +21,8 @@ resources:
         - task_key: run_create_volume_script
           notebook_task:
             notebook_path: ./src/create_uc_volume.py
-      # No schedule, as this is a one-time setup job
+            source: WORKSPACE
+      max_concurrent_runs: 1
 
     twitter_ingestion_job:
       name: ai_newsletter_twitter_ingestion
@@ -20,11 +30,11 @@ resources:
         - task_key: run_ingestion_script
           notebook_task:
             notebook_path: ./src/twitter_ingestion_script.py
-            parameters: # Nested directly under notebook_task
-              raw_data_path: "/Volumes/main/default/ai_newsletter_raw_tweets/"
+            source: WORKSPACE
       schedule:
         quartz_cron_expression: "0 */15 * * * ?" # Every 15 minutes
         timezone_id: UTC
+      max_concurrent_runs: 1
 
     ai_newsletter_bronze_job:
       name: ai_newsletter_bronze_processing
@@ -32,9 +42,8 @@ resources:
         - task_key: run_bronze_processing
           notebook_task:
             notebook_path: ./src/ingestion_job.py
-            parameters: # Nested directly under notebook_task
-              raw_data_path: "/Volumes/main/default/ai_newsletter_raw_tweets/"
-              min_faves_filter: "10"
+            source: WORKSPACE
       schedule:
         quartz_cron_expression: "0 0 * * * ?" # Hourly, or as needed after ingestion
         timezone_id: UTC
+      max_concurrent_runs: 1
