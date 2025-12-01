@@ -9,7 +9,7 @@
 - [x] T006 Add minimum engagement filter (configurable, default min_faves:10 or calculated influence score)
 
 ## Epic 2: Data Pipeline (Bronze → Silver → Gold)
-- [ ] T007 Silver table: deduplication, lang=en filter, author enrichment, influence_score UDF
+- [x] T007 Silver table: deduplication, lang=en filter, author enrichment, influence_score UDF
 - [ ] T008 Gold daily materialized view: top 100 candidates per day by influence score
 - [ ] T009 Gold weekly rollup view (last 7 days)
 
