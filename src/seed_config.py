@@ -182,11 +182,12 @@ try:
     existing_count = existing_df.count()
     print(f"Current records in table: {existing_count}")
 
-    # Create DataFrame from seed data
+    # Create DataFrame from seed data with explicit schema
     from pyspark.sql import Row
+    from datetime import datetime
 
     seed_rows = []
-    current_time = current_timestamp()
+    current_time = datetime.now()
 
     for term_data in seed_terms:
         seed_rows.append(Row(
@@ -198,7 +199,7 @@ try:
             updated_at=current_time
         ))
 
-    seed_df = spark.createDataFrame(seed_rows)
+    seed_df = spark.createDataFrame(seed_rows, schema=search_terms_schema)
 
     # Perform upsert using merge
     # If term exists, update it; otherwise insert it
