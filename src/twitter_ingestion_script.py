@@ -7,7 +7,7 @@ from pyspark.sql import SparkSession
 # --- Configuration ---
 # NOTE: The Twitter bearer token should be stored in a Databricks secret scope.
 # For example, to access a secret in scope 'my_scope' with key 'twitter_bearer_token':
-# bearer_token = dbutils.secrets.get(scope="my_scope", key="twitter_bearer_token")
+#bearer_token = dbutils.secrets.get(scope="ai_newsletter_config", key="twitter_bearer_token")
 
 # For local testing or if secrets are not configured yet, use a placeholder.
 # IMPORTANT: DO NOT hardcode secrets in your notebooks.
@@ -18,9 +18,11 @@ try:
     # This assumes a secret scope and key are configured in Databricks.
     # Replace "your_scope_name" and "twitter_bearer_token" with actual values.
     # For now, we'll use a placeholder if not found.
-    bearer_token = BEARER_TOKEN_PLACEHOLDER
-    # bearer_token = dbutils.secrets.get(scope="your_scope_name", key="twitter_bearer_token")
-except Exception:
+    #bearer_token = BEARER_TOKEN_PLACEHOLDER
+    bearer_token = dbutils.secrets.get(scope="ai_newsletter_config", key="twitter_bearer_token")
+    print(f"✅ Successfully retrieved bearer token (length: {len(bearer_token)} chars)")
+except Exception as e:
+    print(f"❌ ERROR retrieving secret: {e}")
     bearer_token = BEARER_TOKEN_PLACEHOLDER
 
 # Path where raw tweets will be landed (bronze layer source)
@@ -59,7 +61,7 @@ except Exception as e:
     
 if not search_terms:
     print("No search terms found in config table, using default terms.")
-    search_terms = ["AI", "Databricks", "LLM", "Machine Learning"] # Default terms if table not found
+    search_terms = ["Gemini", "Databricks", "Claude Code", "Claude","AI Driven Development"] # Default terms if table not found
 
 query_string = " OR ".join(search_terms) + " lang:en -is:retweet" # Exclude retweets
 
@@ -84,7 +86,7 @@ def fetch_tweets():
         print(f"Error fetching tweets: {response.status_code} - {response.text}")
         return []
 
-    data = response.get("data", [])
+    data = response.json().get("data", [])
     tweets = data if isinstance(data, list) else [] # Ensure data is a list
     print(f"Fetched {len(tweets)} tweets.")
     return tweets
@@ -111,9 +113,12 @@ def land_tweets(tweets_data):
 
 # --- Main Execution ---
 if __name__ == "__main__":
+    print(f"🔍 Checking bearer token... (placeholder: {BEARER_TOKEN_PLACEHOLDER[:10]}...)")
+    print(f"🔍 Current token: {bearer_token[:10]}...")
+
     if bearer_token == BEARER_TOKEN_PLACEHOLDER:
-        print("WARNING: Bearer token is a placeholder. Please configure Databricks secrets.")
-        print("Simulating tweet fetching and landing with dummy data.")
+        print("⚠️  WARNING: Bearer token is a placeholder. Please configure Databricks secrets.")
+        print("📝 Simulating tweet fetching and landing with dummy data.")
         # Simulate fetching and landing for demonstration if token is not set up
         dummy_tweets = [
             {'id': 'dummy_1', 'text': 'Dummy tweet about AI.', 'public_metrics': {'like_count': 15, 'retweet_count': 2, 'reply_count': 1, 'quote_count': 0}, 'author_id': 'user_A', 'created_at': '2023-01-01T10:00:00Z'},
@@ -122,8 +127,11 @@ if __name__ == "__main__":
         ]
         land_tweets(dummy_tweets)
     else:
+        print("✅ Using real Twitter bearer token")
+        print(f"📡 Calling Twitter API...")
         tweets = fetch_tweets()
         if tweets:
+            print(f"📥 Landing {len(tweets)} real tweets...")
             land_tweets(tweets)
         else:
-            print("No tweets fetched or an error occurred. No data landed.")
+            print("⚠️  No tweets fetched or an error occurred. No data landed.")

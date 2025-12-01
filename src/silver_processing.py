@@ -84,14 +84,18 @@ def process_silver_layer():
 
     # Step 2: Deduplicate by tweet ID
     # Use window function to keep the most recent record for each tweet_id
-    window_spec = Window.partitionBy("id").orderBy(col("_commit_timestamp").desc())
-
-    deduplicated_df = (
-        bronze_df
-        .withColumn("row_num", row_number().over(window_spec))
-        .filter(col("row_num") == 1)
-        .drop("row_num")
-    )
+    # Order by created_at if available, otherwise just drop duplicates by id
+    if "created_at" in bronze_df.columns:
+        window_spec = Window.partitionBy("id").orderBy(col("created_at").desc())
+        deduplicated_df = (
+            bronze_df
+            .withColumn("row_num", row_number().over(window_spec))
+            .filter(col("row_num") == 1)
+            .drop("row_num")
+        )
+    else:
+        # If created_at not available, just drop duplicates by id
+        deduplicated_df = bronze_df.dropDuplicates(["id"])
 
     print(f"After deduplication: {deduplicated_df.count()} unique tweets")
 
@@ -111,24 +115,32 @@ def process_silver_layer():
     # Current bronze schema has: id, text, public_metrics (retweet_count, reply_count, like_count, quote_count), author_id
     # We'll extract the metrics and add placeholders for author enrichment
 
-    enriched_df = (
-        filtered_df
-        .select(
-            col("id").alias("tweet_id"),
-            col("text"),
-            col("author_id"),
-            # Placeholder for author name and verification status
-            # In a real implementation, join with a users/authors dimension table
-            lit("").alias("author_name"),  # TODO: Join with author metadata
-            lit(0).cast("long").alias("follower_count"),  # TODO: Get from author metadata
-            lit(False).alias("verified"),  # TODO: Get from author metadata
-            col("_commit_timestamp").alias("created_at"),
-            col("public_metrics.like_count").alias("like_count"),
-            col("public_metrics.retweet_count").alias("retweet_count"),
-            col("public_metrics.reply_count").alias("reply_count"),
-            col("public_metrics.quote_count").alias("quote_count")
-        )
-    )
+    # Build select list dynamically based on available columns
+    select_list = [
+        col("id").alias("tweet_id"),
+        col("text"),
+        col("author_id"),
+        # Placeholder for author name and verification status
+        # In a real implementation, join with a users/authors dimension table
+        lit("").alias("author_name"),  # TODO: Join with author metadata
+        lit(0).cast("long").alias("follower_count"),  # TODO: Get from author metadata
+        lit(False).alias("verified"),  # TODO: Get from author metadata
+    ]
+
+    # Use created_at from bronze if available, otherwise use current timestamp
+    if "created_at" in filtered_df.columns:
+        select_list.append(col("created_at"))
+    else:
+        select_list.append(current_timestamp().alias("created_at"))
+
+    select_list.extend([
+        col("public_metrics.like_count").alias("like_count"),
+        col("public_metrics.retweet_count").alias("retweet_count"),
+        col("public_metrics.reply_count").alias("reply_count"),
+        col("public_metrics.quote_count").alias("quote_count")
+    ])
+
+    enriched_df = filtered_df.select(*select_list)
 
     print("Added author enrichment placeholders")
     print("Note: To fully implement author enrichment:")

@@ -28,7 +28,8 @@ tweet_schema = StructType([
         StructField("like_count", LongType(), True),
         StructField("quote_count", LongType(), True),
     ]), True),
-    StructField("author_id", StringType(), True)
+    StructField("author_id", StringType(), True),
+    StructField("created_at", StringType(), True)
 ])
 
 # Create schema if it doesn't exist
