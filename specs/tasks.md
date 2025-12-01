@@ -10,8 +10,8 @@
 
 ## Epic 2: Data Pipeline (Bronze → Silver → Gold)
 - [x] T007 Silver table: deduplication, lang=en filter, author enrichment, influence_score UDF
-- [ ] T008 Gold daily materialized view: top 100 candidates per day by influence score
-- [ ] T009 Gold weekly rollup view (last 7 days)
+- [x] T008 Gold daily materialized view: top 100 candidates per day by influence score
+- [x] T009 Gold weekly rollup view (last 7 days)
 
 ## Epic 3: LLM Summarization Agent
 - [ ] T010 Create Mosaic AI serving endpoint or external Claude 3.5 Sonnet wrapper

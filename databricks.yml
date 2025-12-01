@@ -59,3 +59,27 @@ resources:
         quartz_cron_expression: "0 30 * * * ?" # Every hour at :30, after bronze processing
         timezone_id: UTC
       max_concurrent_runs: 1
+
+    ai_newsletter_gold_daily_job:
+      name: ai_newsletter_gold_daily_view
+      tasks:
+        - task_key: run_gold_daily_view
+          notebook_task:
+            notebook_path: ./src/gold_daily_view.py
+            source: WORKSPACE
+      schedule:
+        quartz_cron_expression: "0 0 6 * * ?" # Daily at 06:00 UTC
+        timezone_id: UTC
+      max_concurrent_runs: 1
+
+    ai_newsletter_gold_weekly_job:
+      name: ai_newsletter_gold_weekly_rollup
+      tasks:
+        - task_key: run_gold_weekly_rollup
+          notebook_task:
+            notebook_path: ./src/gold_weekly_rollup.py
+            source: WORKSPACE
+      schedule:
+        quartz_cron_expression: "0 0 7 * * ?" # Daily at 07:00 UTC (after daily view)
+        timezone_id: UTC
+      max_concurrent_runs: 1
