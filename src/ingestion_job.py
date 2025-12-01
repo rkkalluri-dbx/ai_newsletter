@@ -6,7 +6,7 @@ import time
 
 # --- Configuration ---
 raw_data_path = "/Volumes/main/default/ai_newsletter_raw_tweets/"
-min_faves_filter = 10
+min_faves_filter = 0  # Changed from 10 to 0 to process all tweets (fresh tweets have low engagement)
 
 # The name of the bronze Delta table. Since UC is enabled, we use a 3-level namespace.
 # Explicitly use 'main' catalog for consistency
