@@ -91,6 +91,11 @@ def fetch_tweets():
     print(f"Fetching tweets with query: {query_string}")
     response = requests.get(twitter_api_url, headers=headers, params=params)
 
+    if response.status_code == 429:
+        error_msg = f"❌ Twitter API Rate Limit Exceeded (429): {response.text}"
+        print(error_msg)
+        raise Exception(error_msg)
+
     if response.status_code != 200:
         print(f"Error fetching tweets: {response.status_code} - {response.text}")
         return []
