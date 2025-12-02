@@ -36,27 +36,21 @@ resources:
         timezone_id: UTC
       max_concurrent_runs: 1
 
-    ai_newsletter_bronze_job:
-      name: ai_newsletter_bronze_processing
+    ai_newsletter_bronze_silver_job:
+      name: ai_newsletter_bronze_silver_processing
       tasks:
         - task_key: run_bronze_processing
           notebook_task:
             notebook_path: ./src/ingestion_job.py
             source: WORKSPACE
-      schedule:
-        quartz_cron_expression: "0 0 * * * ?" # Hourly, or as needed after ingestion
-        timezone_id: UTC
-      max_concurrent_runs: 1
-
-    ai_newsletter_silver_job:
-      name: ai_newsletter_silver_processing
-      tasks:
         - task_key: run_silver_processing
           notebook_task:
             notebook_path: ./src/silver_processing.py
             source: WORKSPACE
+          depends_on:
+            - task_key: run_bronze_processing
       schedule:
-        quartz_cron_expression: "0 30 * * * ?" # Every hour at :30, after bronze processing
+        quartz_cron_expression: "0 30 */4 * * ?" # Every 4 hours at :30 (after Twitter ingestion)
         timezone_id: UTC
       max_concurrent_runs: 1
 
