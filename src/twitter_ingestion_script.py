@@ -3,6 +3,7 @@ import requests
 import json
 import time
 from pyspark.sql import SparkSession
+from datetime import datetime, timezone
 
 # --- Configuration ---
 # NOTE: The Twitter bearer token should be stored in a Databricks secret scope.
@@ -86,9 +87,78 @@ params = {
     "max_results": 100
 }
 
-def fetch_tweets():
-    """Fetches tweets from Twitter API with pagination to get all available tweets."""
+# --- Watermark Management ---
+WATERMARK_TABLE = "main.config.twitter_ingestion_watermark"
+JOB_NAME = "twitter_ingestion"
+
+def create_watermark_table():
+    """Create watermark table if it doesn't exist"""
+    spark.sql(f"CREATE SCHEMA IF NOT EXISTS main.config")
+
+    if not spark.catalog.tableExists(WATERMARK_TABLE):
+        print(f"Creating watermark table: {WATERMARK_TABLE}")
+        spark.sql(f"""
+            CREATE TABLE {WATERMARK_TABLE} (
+                job_name STRING NOT NULL,
+                last_ingestion_time TIMESTAMP NOT NULL,
+                last_tweet_id STRING,
+                tweets_fetched INT,
+                updated_at TIMESTAMP NOT NULL
+            ) USING DELTA
+        """)
+        print(f"✅ Watermark table created")
+
+def get_last_watermark():
+    """Get the last ingestion timestamp for resuming"""
+    create_watermark_table()
+
+    try:
+        watermark_df = spark.read.format("delta").table(WATERMARK_TABLE)
+        watermark_row = watermark_df.filter(f"job_name = '{JOB_NAME}'").orderBy("updated_at", ascending=False).first()
+
+        if watermark_row:
+            last_time = watermark_row['last_ingestion_time']
+            last_tweet_id = watermark_row['last_tweet_id']
+            print(f"📍 Last watermark: {last_time} (tweet ID: {last_tweet_id})")
+            return last_time, last_tweet_id
+        else:
+            print(f"📍 No previous watermark found - first run, fetching last 2 hours")
+            return None, None
+    except Exception as e:
+        print(f"⚠️  Error reading watermark: {e}")
+        return None, None
+
+def update_watermark(ingestion_time, last_tweet_id, tweets_count):
+    """Update the watermark after successful ingestion"""
+    from delta.tables import DeltaTable
+
+    create_watermark_table()
+    print(f"💾 Updating watermark: {ingestion_time} (tweet ID: {last_tweet_id}, count: {tweets_count})")
+
+    # Create new watermark record
+    new_watermark_data = [(JOB_NAME, ingestion_time, last_tweet_id, tweets_count, datetime.now(timezone.utc))]
+    new_watermark = spark.createDataFrame(new_watermark_data, ["job_name", "last_ingestion_time", "last_tweet_id", "tweets_fetched", "updated_at"])
+
+    # Upsert watermark
+    delta_table = DeltaTable.forName(spark, WATERMARK_TABLE)
+    delta_table.alias("existing") \
+        .merge(new_watermark.alias("updates"), "existing.job_name = updates.job_name") \
+        .whenMatchedUpdateAll() \
+        .whenNotMatchedInsertAll() \
+        .execute()
+
+    print(f"✅ Watermark updated successfully")
+
+def fetch_tweets(start_time=None):
+    """Fetches tweets from Twitter API with pagination and watermarking."""
     print(f"Fetching tweets with query: {query_string}")
+
+    if start_time:
+        # Format datetime for Twitter API (ISO 8601)
+        start_time_str = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
+        print(f"📍 Resuming from watermark: {start_time_str}")
+    else:
+        print(f"📍 No watermark - fetching recent tweets")
 
     all_tweets = []
     all_users = {}
@@ -99,10 +169,12 @@ def fetch_tweets():
     while page < max_pages:
         page += 1
 
-        # Add pagination token if available
+        # Add pagination token and start_time if available
         current_params = params.copy()
         if next_token:
             current_params["pagination_token"] = next_token
+        if start_time:
+            current_params["start_time"] = start_time.strftime("%Y-%m-%dT%H:%M:%SZ")
 
         print(f"  Fetching page {page}...")
         response = requests.get(twitter_api_url, headers=headers, params=current_params)
@@ -230,6 +302,8 @@ def land_tweets(tweets_data):
     landed_count = 0
     filtered_lang = 0
     filtered_bot = 0
+    newest_tweet_time = None
+    newest_tweet_id = None
 
     for tweet in tweets_data:
         # Filter 1: Language check (safety check in case API filter missed some)
@@ -254,6 +328,17 @@ def land_tweets(tweets_data):
         landed_count += 1
         print(f"✅ Landed tweet {tweet['id']} to {file_name}")
 
+        # Track the newest tweet for watermarking
+        tweet_created_at = tweet.get('created_at')
+        if tweet_created_at:
+            try:
+                tweet_time = datetime.strptime(tweet_created_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=timezone.utc)
+                if newest_tweet_time is None or tweet_time > newest_tweet_time:
+                    newest_tweet_time = tweet_time
+                    newest_tweet_id = tweet['id']
+            except:
+                pass  # Skip if datetime parsing fails
+
     # Summary
     print(f"\n{'='*60}")
     print(f"INGESTION SUMMARY")
@@ -263,6 +348,12 @@ def land_tweets(tweets_data):
     print(f"🤖 Filtered (bots): {filtered_bot} tweets")
     print(f"Total fetched: {len(tweets_data)} tweets")
     print(f"{'='*60}")
+
+    # Update watermark if tweets were landed
+    if landed_count > 0 and newest_tweet_time:
+        update_watermark(newest_tweet_time, newest_tweet_id, landed_count)
+
+    return landed_count
 
 # --- Main Execution ---
 if __name__ == "__main__":
@@ -281,8 +372,13 @@ if __name__ == "__main__":
         land_tweets(dummy_tweets)
     else:
         print("✅ Using real Twitter bearer token")
+
+        # Get last watermark to resume from
+        last_watermark_time, last_watermark_id = get_last_watermark()
+
         print(f"📡 Calling Twitter API...")
-        tweets = fetch_tweets()
+        tweets = fetch_tweets(start_time=last_watermark_time)
+
         if tweets:
             print(f"📥 Landing {len(tweets)} real tweets...")
             land_tweets(tweets)
