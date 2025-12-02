@@ -45,7 +45,7 @@ resources:
             source: WORKSPACE
       trigger:
         file_arrival:
-          url: /Volumes/main/default/ai_newsletter_raw_tweets
+          url: /Volumes/main/default/ai_newsletter_raw_tweets/
           min_time_between_triggers_seconds: 300  # 5 minutes after last file arrives
       max_concurrent_runs: 1
 
@@ -59,7 +59,7 @@ resources:
       trigger:
         table_update:
           table_names:
-            - main.ai_newsletter_bronze.ai_newsletter_tweets
+            - main.ai_newsletter_bronze.tweets
           min_time_between_triggers_seconds: 300  # 5 minutes after last table update
       max_concurrent_runs: 1
 
