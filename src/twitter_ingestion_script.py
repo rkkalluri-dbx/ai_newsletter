@@ -87,36 +87,67 @@ params = {
 }
 
 def fetch_tweets():
-    """Fetches tweets from Twitter API and lands them as JSON files."""
+    """Fetches tweets from Twitter API with pagination to get all available tweets."""
     print(f"Fetching tweets with query: {query_string}")
-    response = requests.get(twitter_api_url, headers=headers, params=params)
 
-    if response.status_code == 429:
-        error_msg = f"❌ Twitter API Rate Limit Exceeded (429): {response.text}"
-        print(error_msg)
-        raise Exception(error_msg)
+    all_tweets = []
+    all_users = {}
+    next_token = None
+    page = 0
+    max_pages = 5  # Limit to 5 pages (500 tweets max) to avoid excessive API calls
 
-    if response.status_code != 200:
-        print(f"Error fetching tweets: {response.status_code} - {response.text}")
-        return []
+    while page < max_pages:
+        page += 1
 
-    response_json = response.json()
-    tweets = response_json.get("data", [])
+        # Add pagination token if available
+        current_params = params.copy()
+        if next_token:
+            current_params["pagination_token"] = next_token
 
-    if not isinstance(tweets, list):
-        tweets = []
+        print(f"  Fetching page {page}...")
+        response = requests.get(twitter_api_url, headers=headers, params=current_params)
 
-    # Get author/user data from includes section
-    users = {user['id']: user for user in response_json.get("includes", {}).get("users", [])}
+        if response.status_code == 429:
+            error_msg = f"❌ Twitter API Rate Limit Exceeded (429): {response.text}"
+            print(error_msg)
+            raise Exception(error_msg)
 
-    # Attach author metadata to each tweet for bot detection
-    for tweet in tweets:
+        if response.status_code != 200:
+            print(f"Error fetching tweets (page {page}): {response.status_code} - {response.text}")
+            break
+
+        response_json = response.json()
+        tweets = response_json.get("data", [])
+
+        if not isinstance(tweets, list) or len(tweets) == 0:
+            print(f"  No more tweets found on page {page}")
+            break
+
+        # Collect tweets
+        all_tweets.extend(tweets)
+
+        # Collect users from this page
+        page_users = {user['id']: user for user in response_json.get("includes", {}).get("users", [])}
+        all_users.update(page_users)
+
+        print(f"  Fetched {len(tweets)} tweets (total so far: {len(all_tweets)})")
+
+        # Check for next page
+        meta = response_json.get("meta", {})
+        next_token = meta.get("next_token")
+
+        if not next_token:
+            print(f"  No more pages available")
+            break
+
+    # Attach author metadata to all tweets
+    for tweet in all_tweets:
         author_id = tweet.get('author_id')
-        if author_id and author_id in users:
-            tweet['author_metadata'] = users[author_id]
+        if author_id and author_id in all_users:
+            tweet['author_metadata'] = all_users[author_id]
 
-    print(f"Fetched {len(tweets)} tweets with author metadata.")
-    return tweets
+    print(f"✅ Fetched {len(all_tweets)} total tweets across {page} page(s)")
+    return all_tweets
 
 def is_likely_bot(tweet):
     """
