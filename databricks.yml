@@ -49,9 +49,10 @@ resources:
             source: WORKSPACE
           depends_on:
             - task_key: run_bronze_processing
-      schedule:
-        quartz_cron_expression: "0 30 */4 * * ?" # Every 4 hours at :30 (after Twitter ingestion)
-        timezone_id: UTC
+      trigger:
+        file_arrival:
+          url: /Volumes/main/default/ai_newsletter_raw_tweets
+          min_time_between_triggers_seconds: 300  # 5 minutes debounce
       max_concurrent_runs: 1
 
     ai_newsletter_gold_daily_job:
