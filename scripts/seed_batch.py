@@ -10,24 +10,6 @@ WAREHOUSE_ID = "e5ecfb6a56491fdb"
 CATALOG = "main"
 SCHEMA = "gpc_reliability"
 
-VENDOR_DATA = [
-    ("Pike Electric Corporation", "PIKE", "John Smith", "jsmith@pikeelectric.com"),
-    ("MYR Group Inc.", "MYR", "Sarah Johnson", "sjohnson@myrgroup.com"),
-    ("Quanta Services", "QUANTA", "Mike Davis", "mdavis@quantaservices.com"),
-    ("Mastec Inc.", "MASTEC", "Lisa Brown", "lbrown@mastec.com"),
-    ("Dycom Industries", "DYCOM", "Robert Wilson", "rwilson@dycom.com"),
-    ("Black and Veatch", "BV", "Jennifer Lee", "jlee@bv.com"),
-    ("Primoris Services", "PRIMO", "David Martinez", "dmartinez@primoris.com"),
-    ("Willbros Group", "WILL", "Amanda Taylor", "ataylor@willbros.com"),
-    ("Infrastructure Energy Alt", "IEA", "Chris Anderson", "canderson@iea.net"),
-    ("PAR Electrical Contractors", "PAR", "Michelle Thomas", "mthomas@parelectric.com"),
-    ("Summit Line Construction", "SUMMIT", "James Jackson", "jjackson@summitline.com"),
-    ("Henkels and McCoy Group", "HMG", "Patricia White", "pwhite@henkels.com"),
-    ("Asplundh Tree Expert", "ASPLUNDH", "Richard Harris", "rharris@asplundh.com"),
-    ("EMCOR Group", "EMCOR", "Susan Clark", "sclark@emcor.net"),
-    ("Michels Corporation", "MICHELS", "Daniel Lewis", "dlewis@michels.us"),
-]
-
 REGIONS = ["Metro Atlanta", "North Georgia", "Central Georgia", "South Georgia",
            "Coastal Georgia", "West Georgia", "East Georgia", "Augusta Area"]
 STATUSES = ["authorized", "assigned_to_vendor", "design_submitted", "qa_qc", "approved", "construction_ready"]
@@ -49,31 +31,73 @@ def table_name(table: str) -> str:
     return f"{CATALOG}.{SCHEMA}.{table}"
 
 
-def seed_vendors() -> list[str]:
+def generate_vendors(count: int = 50) -> list[tuple]:
+    """Generate synthetic vendor data."""
+    base_vendors = [
+        ("Pike Electric Corporation", "PIKE"),
+        ("MYR Group Inc.", "MYR"),
+        ("Quanta Services", "QUANTA"),
+        ("Mastec Inc.", "MASTEC"),
+        ("Dycom Industries", "DYCOM"),
+        ("Black and Veatch", "BV"),
+        ("Primoris Services", "PRIMO"),
+        ("Willbros Group", "WILL"),
+        ("Infrastructure Energy Alt", "IEA"),
+        ("PAR Electrical Contractors", "PAR"),
+        ("Summit Line Construction", "SUMMIT"),
+        ("Henkels and McCoy Group", "HMG"),
+        ("Asplundh Tree Expert", "ASPLUNDH"),
+        ("EMCOR Group", "EMCOR"),
+        ("Michels Corporation", "MICHELS"),
+    ]
+    
+    vendors = []
+    for i in range(count):
+        if i < len(base_vendors):
+            name, code = base_vendors[i]
+            contact = f"Contact {i+1}"
+            email = f"contact{i+1}@{code.lower()}.com"
+        else:
+            name = f"Vendor {i+1} Services"
+            code = f"VEND{i+1}"
+            contact = f"Manager {i+1}"
+            email = f"manager{i+1}@vendor{i+1}.com"
+        vendors.append((name, code, contact, email))
+    return vendors
+
+
+def seed_vendors(count: int = 50) -> list[str]:
     """Seed all vendors in a single batch insert."""
-    print("Seeding vendors...")
+    print(f"Seeding {count} vendors...")
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-    vendor_ids = [str(uuid.uuid4()) for _ in VENDOR_DATA]
+    vendor_data = generate_vendors(count)
+    vendor_ids = [str(uuid.uuid4()) for _ in vendor_data]
 
     values = []
-    for vid, (name, code, contact, email) in zip(vendor_ids, VENDOR_DATA):
+    for vid, (name, code, contact, email) in zip(vendor_ids, vendor_data):
         values.append(f"('{vid}', '{name}', '{code}', '{contact}', '{email}', true, '{now}', '{now}')")
 
-    sql = f"""INSERT INTO {table_name('vendors')}
-        (id, name, code, contact_name, contact_email, is_active, created_at, updated_at)
-        VALUES {', '.join(values)}"""
-
-    result = execute_sql(sql)
-    if result.get("status", {}).get("state") == "SUCCEEDED":
-        print(f"  ✓ Seeded {len(vendor_ids)} vendors")
-    else:
-        print(f"  ✗ Failed: {result.get('status', {}).get('error', {}).get('message', 'Unknown error')}")
+    # Insert in chunks of 50
+    total = 0
+    for i in range(0, len(values), 50):
+        chunk = values[i:i+50]
+        sql = f"""INSERT INTO {table_name('vendors')}
+            (id, name, code, contact_name, contact_email, is_active, created_at, updated_at)
+            VALUES {', '.join(chunk)}"""
+        
+        result = execute_sql(sql)
+        if result.get("status", {}).get("state") == "SUCCEEDED":
+            total += len(chunk)
+        else:
+            print(f"  ✗ Failed chunk {i}: {result.get('status', {}).get('error', {}).get('message', 'Unknown error')}")
+            
+    print(f"  ✓ Seeded {total} vendors")
     return vendor_ids
 
 
-def seed_projects(vendor_ids: list[str], count: int = 50) -> list[str]:
+def seed_projects(vendor_ids: list[str], count: int = 700) -> list[str]:
     """Seed projects in batch."""
-    print("Seeding projects...")
+    print(f"Seeding {count} projects...")
     now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
     project_ids = []
     values = []
@@ -98,18 +122,24 @@ def seed_projects(vendor_ids: list[str], count: int = 50) -> list[str]:
                      f"'{status}', '{priority}', '{auth_date}', {sent}, {recv}, {target}, {actual}, "
                      f"{random.randint(0, 5)}, 1, '{now}', '{now}')")
 
-    sql = f"""INSERT INTO {table_name('projects')}
-        (id, work_order_number, vendor_id, description, region, status, priority,
-         authorized_date, sent_to_vendor_date, received_from_vendor_date,
-         target_completion_date, actual_completion_date, revision_count, version,
-         created_at, updated_at)
-        VALUES {', '.join(values)}"""
+    # Insert in chunks of 100
+    total = 0
+    for i in range(0, len(values), 100):
+        chunk = values[i:i+100]
+        sql = f"""INSERT INTO {table_name('projects')}
+            (id, work_order_number, vendor_id, description, region, status, priority,
+             authorized_date, sent_to_vendor_date, received_from_vendor_date,
+             target_completion_date, actual_completion_date, revision_count, version,
+             created_at, updated_at)
+            VALUES {', '.join(chunk)}"""
 
-    result = execute_sql(sql)
-    if result.get("status", {}).get("state") == "SUCCEEDED":
-        print(f"  ✓ Seeded {len(project_ids)} projects")
-    else:
-        print(f"  ✗ Failed: {result.get('status', {}).get('error', {}).get('message', 'Unknown error')}")
+        result = execute_sql(sql)
+        if result.get("status", {}).get("state") == "SUCCEEDED":
+            total += len(chunk)
+        else:
+             print(f"  ✗ Failed chunk {i}: {result.get('status', {}).get('error', {}).get('message', 'Unknown error')}")
+
+    print(f"  ✓ Seeded {total} projects")
     return project_ids
 
 
@@ -157,12 +187,13 @@ def seed_alerts(project_ids: list[str]) -> int:
     values = []
 
     for pid in project_ids:
-        if random.random() > 0.7:
+        # Increased alert probability for better data distribution
+        if random.random() > 0.6:
             for _ in range(random.randint(1, 3)):
                 aid = str(uuid.uuid4())
                 alert_type = random.choice(["milestone_overdue", "milestone_approaching", "status_change"])
                 severity = random.choice(["info", "warning", "critical"])
-                is_ack = random.random() > 0.5
+                is_ack = random.random() > 0.6 # More acknowledged alerts
                 created = (datetime.utcnow() - timedelta(days=random.randint(0, 30))).strftime("%Y-%m-%d %H:%M:%S")
                 ack_at = f"'{datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}'" if is_ack else "NULL"
                 ack_by = "'system@gpc.com'" if is_ack else "NULL"
@@ -170,18 +201,23 @@ def seed_alerts(project_ids: list[str]) -> int:
                 values.append(f"('{aid}', '{pid}', '{alert_type}', 'Alert for project', '{severity}', "
                              f"{str(is_ack).lower()}, {ack_at}, {ack_by}, '{created}')")
 
+    # Insert in chunks of 100
+    total = 0
     if values:
-        sql = f"""INSERT INTO {table_name('alerts')}
-            (id, project_id, alert_type, message, severity, is_acknowledged,
-             acknowledged_at, acknowledged_by, created_at)
-            VALUES {', '.join(values)}"""
-        result = execute_sql(sql)
-        if result.get("status", {}).get("state") == "SUCCEEDED":
-            print(f"  ✓ Seeded {len(values)} alerts")
-            return len(values)
+        for i in range(0, len(values), 100):
+            chunk = values[i:i+100]
+            sql = f"""INSERT INTO {table_name('alerts')}
+                (id, project_id, alert_type, message, severity, is_acknowledged,
+                 acknowledged_at, acknowledged_by, created_at)
+                VALUES {', '.join(chunk)}"""
+            result = execute_sql(sql)
+            if result.get("status", {}).get("state") == "SUCCEEDED":
+                total += len(chunk)
+            else:
+                 print(f"  ✗ Failed chunk {i}: {result.get('status', {}).get('error', {}).get('message', 'Unknown error')}")
 
-    print(f"  ✓ Seeded {len(values)} alerts")
-    return len(values)
+    print(f"  ✓ Seeded {total} alerts")
+    return total
 
 
 def seed_audit_logs(project_ids: list[str]) -> int:
@@ -191,7 +227,7 @@ def seed_audit_logs(project_ids: list[str]) -> int:
     actions = ["create", "update", "status_change"]
 
     for pid in project_ids:
-        for i in range(random.randint(2, 4)):
+        for i in range(random.randint(2, 5)): # More logs per project
             lid = str(uuid.uuid4())
             action = random.choice(actions)
             created = (datetime.utcnow() - timedelta(days=random.randint(0, 60))).strftime("%Y-%m-%d %H:%M:%S")
@@ -204,7 +240,7 @@ def seed_audit_logs(project_ids: list[str]) -> int:
             values.append(f"('{lid}', '{pid}', '{action}', {field}, {old_val}, {new_val}, "
                          f"NULL, '{user}', '{user}', '{created}')")
 
-    # Insert in chunks
+    # Insert in chunks of 100
     total = 0
     for i in range(0, len(values), 100):
         chunk = values[i:i+100]
@@ -254,15 +290,16 @@ def seed_vendor_metrics(vendor_ids: list[str]) -> int:
 
 def main():
     print("=" * 50)
-    print("Seeding GPC Reliability Database (Batch Mode)")
+    print("Seeding GPC Reliability Database (Batch Mode - Scaled)")
     print("=" * 50)
 
-    vendor_ids = seed_vendors()
-    project_ids = seed_projects(vendor_ids, count=50)
+    vendor_ids = seed_vendors(count=50)
+    project_ids = seed_projects(vendor_ids, count=700)
     seed_milestones(project_ids)
     seed_alerts(project_ids)
     seed_audit_logs(project_ids)
     seed_vendor_metrics(vendor_ids)
+
 
     print("=" * 50)
     print("Seeding complete!")

@@ -104,9 +104,9 @@ A web-based application that enables Georgia Power's Reliability team to track 7
 - "Same platform they'll use for future analytics and AI"
 
 **Future possibilities:**
-- "Predictive alerts - AI that predicts which projects will miss deadlines"
 - "Automated data sync from Jets database and SQL Server"
-- "Gantt chart visualization (coming soon)"
+- "Gantt chart availability for enhanced project planning"
+- "Predictive alerts - AI that predicts which projects will miss deadlines"
 
 ---
 

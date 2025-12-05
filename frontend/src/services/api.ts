@@ -64,7 +64,7 @@ export interface ProjectListParams extends ListParams {
 export interface AlertListParams extends ListParams {
   severity?: string;
   alert_type?: string;
-  acknowledged?: boolean;
+  is_acknowledged?: boolean;
   project_id?: string;
 }
 
@@ -74,8 +74,10 @@ export const dashboardApi = {
   getNextActions: (limit?: number) => apiClient.get('/dashboard/next-actions', { params: { limit } }),
   getStatusDistribution: () => apiClient.get('/dashboard/status-distribution'),
   getRegionDistribution: () => apiClient.get('/dashboard/region-distribution'),
-  getVendorPerformance: (limit?: number) => apiClient.get('/dashboard/vendor-performance', { params: { limit } }),
+  getVendorPerformance: (limit?: number, sortBy?: 'volume' | 'performance', order?: 'asc' | 'desc') =>
+    apiClient.get('/dashboard/vendor-performance', { params: { limit, sort_by: sortBy, order } }),
   getRecentActivity: (limit?: number) => apiClient.get('/dashboard/recent-activity', { params: { limit } }),
+  getProjectIssues: () => apiClient.get('/dashboard/project-issues'),
 };
 
 // Projects API

@@ -47,9 +47,9 @@ def list_alerts():
         conditions.append(f"a.alert_type IN ({','.join(types)})")
 
     # Acknowledged filter
-    acknowledged = request.args.get("acknowledged")
-    if acknowledged is not None:
-        ack_value = acknowledged.lower() == "true"
+    is_acknowledged = request.args.get("is_acknowledged")
+    if is_acknowledged is not None:
+        ack_value = is_acknowledged.lower() == "true"
         conditions.append(f"a.is_acknowledged = {str(ack_value).lower()}")
 
     # Project filter
@@ -78,11 +78,12 @@ def list_alerts():
     count_result = db.execute(count_query)
     total = count_result[0]["total"] if count_result else 0
 
-    # Get paginated data with project info
+    # Get paginated data with project and vendor info
     data_query = f"""
-        SELECT a.*, p.work_order_number
+        SELECT a.*, p.work_order_number, p.description as project_description, v.name as vendor_name
         FROM {table_name('alerts')} a
         JOIN {table_name('projects')} p ON a.project_id = p.id
+        LEFT JOIN {table_name('vendors')} v ON p.vendor_id = v.id
         WHERE {where_clause}
         ORDER BY
             CASE a.severity
@@ -100,6 +101,8 @@ def list_alerts():
         alerts.append({
             "id": row["id"],
             "project_id": row["project_id"],
+            "project_name": row.get("work_order_number"),
+            "vendor_name": row.get("vendor_name"),
             "work_order_number": row.get("work_order_number"),
             "alert_type": row["alert_type"],
             "message": row["message"],

@@ -48,14 +48,15 @@ def list_vendors():
     if sort_by not in valid_sort_fields:
         sort_by = "name"
 
-    # Query vendors with project stats and metrics
+    # Query vendors with project stats and metrics (current and previous for trend)
     query = f"""
         SELECT
             v.*,
             COALESCE(ps.total_projects, 0) as total_projects,
             COALESCE(ps.active_projects, 0) as active_projects,
             COALESCE(ps.completed_projects, 0) as completed_projects,
-            vm.on_time_rate as on_time_percentage
+            vm_current.on_time_rate as on_time_percentage,
+            vm_prev.on_time_rate as prev_on_time_percentage
         FROM {table_name('vendors')} v
         LEFT JOIN (
             SELECT
@@ -70,7 +71,12 @@ def list_vendors():
             SELECT vendor_id, on_time_rate,
                    ROW_NUMBER() OVER (PARTITION BY vendor_id ORDER BY period_end DESC) as rn
             FROM {table_name('vendor_metrics')}
-        ) vm ON v.id = vm.vendor_id AND vm.rn = 1
+        ) vm_current ON v.id = vm_current.vendor_id AND vm_current.rn = 1
+        LEFT JOIN (
+            SELECT vendor_id, on_time_rate,
+                   ROW_NUMBER() OVER (PARTITION BY vendor_id ORDER BY period_end DESC) as rn
+            FROM {table_name('vendor_metrics')}
+        ) vm_prev ON v.id = vm_prev.vendor_id AND vm_prev.rn = 2
         WHERE {where_clause}
         ORDER BY v.{sort_by} {sort_order}
     """
@@ -83,7 +89,19 @@ def list_vendors():
         vendor["total_projects"] = row.get("total_projects", 0)
         vendor["active_projects"] = row.get("active_projects", 0)
         vendor["completed_projects"] = row.get("completed_projects", 0)
-        vendor["on_time_percentage"] = round(row.get("on_time_percentage") or 0, 1)
+        current_rate = row.get("on_time_percentage") or 0
+        prev_rate = row.get("prev_on_time_percentage")
+        vendor["on_time_percentage"] = round(current_rate, 1)
+        # Calculate trend: 'up', 'down', or 'stable' (null if no previous data)
+        if prev_rate is not None:
+            if current_rate > prev_rate + 1:
+                vendor["on_time_trend"] = "up"
+            elif current_rate < prev_rate - 1:
+                vendor["on_time_trend"] = "down"
+            else:
+                vendor["on_time_trend"] = "stable"
+        else:
+            vendor["on_time_trend"] = None
         vendors.append(vendor)
 
     return jsonify({
@@ -407,4 +425,74 @@ def seed_inactive_vendors():
     return jsonify({
         "message": f"Added {added} inactive vendors",
         "total_inactive": len(inactive_vendors)
+    })
+
+
+@vendors_bp.route("/admin/seed-poor-performer", methods=["POST"])
+def seed_poor_performer():
+    """Admin endpoint to add a poor performing vendor with declining metrics."""
+    from datetime import datetime, timedelta
+
+    now = datetime.utcnow()
+    now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+
+    # Check if vendor already exists
+    check_query = f"SELECT id FROM {table_name('vendors')} WHERE code = 'BADCO'"
+    existing = db.execute(check_query)
+
+    if existing:
+        vendor_id = existing[0]["id"]
+    else:
+        # Create poor performing vendor
+        vendor_id = str(uuid.uuid4())
+        vendor_query = f"""
+        INSERT INTO {table_name('vendors')}
+        (id, name, code, contact_name, contact_email, is_active, created_at, updated_at)
+        VALUES ('{vendor_id}', 'Unreliable Contractors LLC', 'BADCO',
+                'Bob Slacker', 'bslacker@unreliable.com', true,
+                '{now_str}', '{now_str}')
+        """
+        db.execute_write(vendor_query)
+
+    # Delete existing metrics for this vendor
+    db.execute_write(f"DELETE FROM {table_name('vendor_metrics')} WHERE vendor_id = '{vendor_id}'")
+
+    # Add two metric periods - showing a declining trend
+    # Previous period: 65% on-time (not great but ok)
+    prev_period_end = (now - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+    prev_period_start = (now - timedelta(days=60)).strftime("%Y-%m-%d %H:%M:%S")
+    prev_metric_id = str(uuid.uuid4())
+
+    prev_metrics_query = f"""
+    INSERT INTO {table_name('vendor_metrics')}
+    (id, vendor_id, period_start, period_end, total_projects, completed_projects,
+     active_projects, overdue_projects, on_time_rate, avg_cycle_time_days,
+     revision_rate, sla_compliance_rate, created_at, updated_at)
+    VALUES ('{prev_metric_id}', '{vendor_id}', '{prev_period_start}', '{prev_period_end}',
+            25, 10, 15, 8, 65.0, 45.5, 2.1, 70.0, '{now_str}', '{now_str}')
+    """
+    db.execute_write(prev_metrics_query)
+
+    # Current period: 38% on-time (poor, declining)
+    curr_period_end = now_str
+    curr_period_start = (now - timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+    curr_metric_id = str(uuid.uuid4())
+
+    curr_metrics_query = f"""
+    INSERT INTO {table_name('vendor_metrics')}
+    (id, vendor_id, period_start, period_end, total_projects, completed_projects,
+     active_projects, overdue_projects, on_time_rate, avg_cycle_time_days,
+     revision_rate, sla_compliance_rate, created_at, updated_at)
+    VALUES ('{curr_metric_id}', '{vendor_id}', '{curr_period_start}', '{curr_period_end}',
+            30, 8, 22, 15, 38.5, 62.3, 3.2, 45.0, '{now_str}', '{now_str}')
+    """
+    db.execute_write(curr_metrics_query)
+
+    return jsonify({
+        "message": "Added poor performing vendor with declining metrics",
+        "vendor_id": vendor_id,
+        "vendor_name": "Unreliable Contractors LLC",
+        "current_on_time": 38.5,
+        "previous_on_time": 65.0,
+        "trend": "down"
     })

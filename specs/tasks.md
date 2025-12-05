@@ -60,12 +60,12 @@
 ## Phase 2: Core Features
 
 ### 2.1 Project List (FR-1.1, FR-1.2, FR-1.3)
-- [ ] **TASK-033**: Implement `GET /api/v1/projects` endpoint with pagination
-- [ ] **TASK-034**: Add query params: `status`, `vendor_id`, `region`, `priority`
-- [ ] **TASK-035**: Add query params: `date_from`, `date_to`, `search`
-- [ ] **TASK-036**: Add query params: `sort_by`, `sort_order`
-- [ ] **TASK-037**: Create `useProjects` React Query hook
-- [ ] **TASK-038**: Create `<ProjectsTable>` component with MUI DataGrid
+- [x] **TASK-033**: Implement `GET /api/v1/projects` endpoint with pagination
+- [x] **TASK-034**: Add query params: `status`, `vendor_id`, `region`, `priority`
+- [x] **TASK-035**: Add query params: `date_from`, `date_to`, `search`
+- [x] **TASK-036**: Add query params: `sort_by`, `sort_order`
+- [x] **TASK-037**: Create `useProjects` React Query hook
+- [x] **TASK-038**: Create `<ProjectsTable>` component with MUI DataGrid
 - [ ] **TASK-039**: Create `<FilterPanel>` component with multi-select dropdowns
 - [ ] **TASK-040**: Create `<SearchInput>` component with debounce
 - [ ] **TASK-041**: Create Projects list page integrating all components
@@ -100,10 +100,10 @@
 - [x] **TASK-061**: Add click handlers to navigate from actions to project
 
 ### 2.4 CSV Export (FR-1.6)
-- [ ] **TASK-062**: Implement `GET /api/v1/projects/export` endpoint
-- [ ] **TASK-063**: Generate CSV with: work_order, vendor, status, dates, days_overdue
-- [ ] **TASK-064**: Add Export button to Projects page
-- [ ] **TASK-065**: Trigger file download on button click
+- [x] **TASK-062**: Implement `GET /api/v1/projects/export` endpoint
+- [x] **TASK-063**: Generate CSV with: work_order, vendor, status, dates, days_overdue
+- [x] **TASK-064**: Add Export button to Projects page
+- [x] **TASK-065**: Trigger file download on button click
 
 ### 2.5 Manual Data Entry (FR-5.7, FR-5.8) - POC Scope
 - [ ] **TASK-065A**: Implement `POST /api/v1/projects` endpoint for manual project creation
@@ -121,28 +121,28 @@
 ## Phase 3: Visualization
 
 ### 3.1 Gantt Chart (FR-3.1 - FR-3.5)
-- [ ] **TASK-066**: Install and configure `gantt-task-react`
-- [ ] **TASK-067**: Implement `GET /api/v1/gantt` endpoint
-- [ ] **TASK-068**: Transform project data to Gantt task format
-- [ ] **TASK-069**: Create `<GanttToolbar>` component (zoom, filters)
-- [ ] **TASK-070**: Create `<GanttChart>` wrapper component
-- [ ] **TASK-071**: Implement zoom levels: Week, Month, Quarter, Year
-- [ ] **TASK-072**: Add status-based color coding to bars
-- [ ] **TASK-073**: Add "today" line marker
-- [ ] **TASK-074**: Add click handler to navigate to project detail
-- [ ] **TASK-075**: Create GanttView page
+- [x] **TASK-066**: Install and configure `gantt-task-react`
+- [x] **TASK-067**: Implement `GET /api/v1/gantt` endpoint
+- [x] **TASK-068**: Transform project data to Gantt task format
+- [x] **TASK-069**: Create `<GanttToolbar>` component (zoom, filters)
+- [x] **TASK-070**: Create `<GanttChart>` wrapper component
+- [x] **TASK-071**: Implement zoom levels: Week, Month, Quarter, Year
+- [x] **TASK-072**: Add status-based color coding to bars
+- [x] **TASK-073**: Add "today" line marker
+- [x] **TASK-074**: Add click handler to navigate to project detail
+- [x] **TASK-075**: Create GanttView page
 
 ### 3.2 Vendor Performance (FR-4.1 - FR-4.4)
-- [ ] **TASK-076**: Implement `GET /api/v1/vendors` endpoint
-- [ ] **TASK-077**: Implement `GET /api/v1/vendors/{id}` endpoint
-- [ ] **TASK-078**: Implement `GET /api/v1/vendors/{id}/metrics` endpoint
-- [ ] **TASK-079**: Create `useVendors` React Query hook
-- [ ] **TASK-080**: Create `<VendorComparisonChart>` horizontal bar chart
-- [ ] **TASK-081**: Create `<VendorTable>` with sortable metrics columns
-- [ ] **TASK-082**: Create Vendors list page
-- [ ] **TASK-083**: Create `<VendorMetricCards>` component
-- [ ] **TASK-084**: Create `<VendorTrendChart>` line chart
-- [ ] **TASK-085**: Create Vendor detail page
+- [x] **TASK-076**: Implement `GET /api/v1/vendors` endpoint
+- [x] **TASK-077**: Implement `GET /api/v1/vendors/{id}` endpoint
+- [x] **TASK-078**: Implement `GET /api/v1/vendors/{id}/metrics` endpoint
+- [x] **TASK-079**: Create `useVendors` React Query hook
+- [x] **TASK-080**: Create `<VendorComparisonChart>` horizontal bar chart
+- [x] **TASK-081**: Create `<VendorTable>` with sortable metrics columns
+- [x] **TASK-082**: Create Vendors list page
+- [x] **TASK-083**: Create `<VendorMetricCards>` component
+- [x] **TASK-084**: Create `<VendorTrendChart>` line chart
+- [x] **TASK-085**: Create Vendor detail page
 
 ---
 
@@ -182,13 +182,13 @@
 - [ ] **TASK-109**: Test metrics job in dev environment
 
 ### 4.4 Alerts UI (FR-2.4, FR-2.5)
-- [ ] **TASK-110**: Implement `GET /api/v1/alerts` endpoint
-- [ ] **TASK-111**: Implement `POST /api/v1/alerts/{id}/acknowledge` endpoint
-- [ ] **TASK-112**: Implement `POST /api/v1/alerts/acknowledge` (bulk)
-- [ ] **TASK-113**: Create `useAlerts` React Query hook
-- [ ] **TASK-114**: Create `<AlertsPanel>` component for dashboard
-- [ ] **TASK-115**: Create `<AlertBadge>` severity indicator component
-- [ ] **TASK-116**: Add acknowledge button with optimistic update
+- [x] **TASK-110**: Implement `GET /api/v1/alerts` endpoint
+- [x] **TASK-111**: Implement `POST /api/v1/alerts/{id}/acknowledge` endpoint
+- [x] **TASK-112**: Implement `POST /api/v1/alerts/acknowledge` (bulk)
+- [x] **TASK-113**: Create `useAlerts` React Query hook
+- [x] **TASK-114**: Create `<AlertsPanel>` component for dashboard
+- [x] **TASK-115**: Create `<AlertBadge>` severity indicator component
+- [x] **TASK-116**: Add acknowledge button with optimistic update
 - [x] **TASK-117**: Add notification badge to header
 
 ---
@@ -224,8 +224,8 @@
 - [ ] **TASK-139**: Run Locust load test with 50 concurrent users
 
 ### 5.4 Documentation
-- [ ] **TASK-140**: Write README.md with setup instructions
-- [ ] **TASK-141**: Document API endpoints in OpenAPI spec
+- [x] **TASK-140**: Write README.md with setup instructions
+- [x] **TASK-141**: Document API endpoints in OpenAPI spec
 - [ ] **TASK-142**: Create user guide for reliability team
 - [ ] **TASK-143**: Document DABs deployment process
 

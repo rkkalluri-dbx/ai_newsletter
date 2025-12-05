@@ -20,8 +20,10 @@ export const queryKeys = {
   dashboardNextActions: (limit?: number) => ['dashboard', 'next-actions', limit] as const,
   dashboardStatusDistribution: ['dashboard', 'status-distribution'] as const,
   dashboardRegionDistribution: ['dashboard', 'region-distribution'] as const,
-  dashboardVendorPerformance: (limit?: number) => ['dashboard', 'vendor-performance', limit] as const,
+  dashboardVendorPerformance: (limit?: number, sortBy?: string, order?: string) =>
+    ['dashboard', 'vendor-performance', limit, sortBy, order] as const,
   dashboardRecentActivity: (limit?: number) => ['dashboard', 'recent-activity', limit] as const,
+  dashboardProjectIssues: ['dashboard', 'project-issues'] as const,
 
   // Projects
   projects: (params?: ProjectListParams) => ['projects', params] as const,
@@ -79,10 +81,14 @@ export function useDashboardRegionDistribution() {
   });
 }
 
-export function useDashboardVendorPerformance(limit?: number) {
+export function useDashboardVendorPerformance(
+  limit?: number,
+  sortBy?: 'volume' | 'performance',
+  order?: 'asc' | 'desc'
+) {
   return useQuery({
-    queryKey: queryKeys.dashboardVendorPerformance(limit),
-    queryFn: () => dashboardApi.getVendorPerformance(limit).then((res) => res.data),
+    queryKey: queryKeys.dashboardVendorPerformance(limit, sortBy, order),
+    queryFn: () => dashboardApi.getVendorPerformance(limit, sortBy, order).then((res) => res.data),
   });
 }
 
@@ -90,6 +96,13 @@ export function useDashboardRecentActivity(limit?: number) {
   return useQuery({
     queryKey: queryKeys.dashboardRecentActivity(limit),
     queryFn: () => dashboardApi.getRecentActivity(limit).then((res) => res.data),
+  });
+}
+
+export function useDashboardProjectIssues() {
+  return useQuery({
+    queryKey: queryKeys.dashboardProjectIssues,
+    queryFn: () => dashboardApi.getProjectIssues().then((res) => res.data),
   });
 }
 

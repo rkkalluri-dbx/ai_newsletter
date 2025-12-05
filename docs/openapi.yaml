@@ -1,0 +1,297 @@
+openapi: 3.0.0
+info:
+  title: GPC Reliability Tracker API
+  description: API for tracking reliability projects, vendors, and alerts.
+  version: 1.0.0
+servers:
+  - url: /api/v1
+    description: Base API URL
+paths:
+  /dashboard/summary:
+    get:
+      summary: Get dashboard summary metrics
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      active_projects:
+                        type: integer
+                      overdue_projects:
+                        type: integer
+                      critical_attention:
+                        type: integer
+                      unacknowledged_alerts:
+                        type: integer
+  /dashboard/next-actions:
+    get:
+      summary: Get prioritized next actions
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        type:
+                          type: string
+                        description:
+                          type: string
+                        priority:
+                          type: string
+  /projects:
+    get:
+      summary: List projects
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: vendor_id
+          in: query
+          schema:
+            type: string
+        - name: region
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Project'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  per_page:
+                    type: integer
+    post:
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '201':
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+  /projects/{id}:
+    get:
+      summary: Get project details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+    patch:
+      summary: Update project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectInput'
+      responses:
+        '200':
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+  /vendors:
+    get:
+      summary: List vendors
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Vendor'
+  /alerts:
+    get:
+      summary: List alerts
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+        - name: is_acknowledged
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Alert'
+  /alerts/{id}/acknowledge:
+    post:
+      summary: Acknowledge an alert
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Alert acknowledged
+  /gantt:
+    get:
+      summary: Get Gantt chart data
+      parameters:
+        - name: vendor_id
+          in: query
+          schema:
+            type: string
+        - name: region
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        work_order_number:
+                          type: string
+                        milestones:
+                          type: array
+                          items:
+                            type: object
+components:
+  schemas:
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+        work_order_number:
+          type: string
+        project_name:
+          type: string
+        status:
+          type: string
+        vendor_id:
+          type: string
+        region:
+          type: string
+        priority:
+          type: string
+    ProjectInput:
+      type: object
+      properties:
+        work_order_number:
+          type: string
+        project_name:
+          type: string
+        status:
+          type: string
+        vendor_id:
+          type: string
+    Vendor:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        code:
+          type: string
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+        message:
+          type: string
+        severity:
+          type: string
+        is_acknowledged:
+          type: boolean
+        created_at:
+          type: string

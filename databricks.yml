@@ -6,7 +6,7 @@ sync:
     - app/**
     - wsgi.py
     - requirements.txt
-    - app.yaml
+    - app.yml
 
 variables:
   environment:

@@ -55,7 +55,7 @@ const SEVERITIES = ['info', 'warning', 'critical'];
 const ALERT_TYPES = ['milestone_overdue', 'milestone_approaching', 'status_change', 'revision_added'];
 
 interface AlertItem {
-  alert_id: string;
+  id: string;
   alert_type: string;
   severity: string;
   title: string;
@@ -64,7 +64,7 @@ interface AlertItem {
   project_name?: string;
   vendor_id?: string;
   vendor_name?: string;
-  acknowledged: boolean;
+  is_acknowledged: boolean;
   acknowledged_by?: string;
   acknowledged_at?: string;
   created_at: string;
@@ -105,7 +105,7 @@ export default function Alerts() {
   const [filters, setFilters] = useState<AlertListParams>({
     severity: undefined,
     alert_type: undefined,
-    acknowledged: undefined,
+    is_acknowledged: undefined,
   });
 
   // Build query params
@@ -167,7 +167,7 @@ export default function Alerts() {
     setFilters({
       severity: undefined,
       alert_type: undefined,
-      acknowledged: undefined,
+      is_acknowledged: undefined,
     });
     setPage(0);
   };
@@ -193,8 +193,8 @@ export default function Alerts() {
   const handleSelectAll = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.checked) {
       const unacknowledgedIds = alerts
-        .filter((alert) => !alert.acknowledged)
-        .map((alert) => alert.alert_id);
+        .filter((alert) => !alert.is_acknowledged)
+        .map((alert) => alert.id);
       setSelectedAlerts(unacknowledgedIds);
     } else {
       setSelectedAlerts([]);
@@ -377,10 +377,10 @@ export default function Alerts() {
                 size="small"
                 select
                 label="Status"
-                value={filters.acknowledged === undefined ? '' : filters.acknowledged ? 'true' : 'false'}
+                value={filters.is_acknowledged === undefined ? '' : filters.is_acknowledged ? 'true' : 'false'}
                 onChange={(e) => {
                   const value = e.target.value;
-                  handleFilterChange('acknowledged', value === '' ? undefined : value === 'true');
+                  handleFilterChange('is_acknowledged', value === '' ? undefined : value === 'true');
                 }}
               >
                 <MenuItem value="">All Statuses</MenuItem>
@@ -412,11 +412,11 @@ export default function Alerts() {
                   <Checkbox
                     indeterminate={
                       selectedAlerts.length > 0 &&
-                      selectedAlerts.length < alerts.filter((a) => !a.acknowledged).length
+                      selectedAlerts.length < alerts.filter((a) => !a.is_acknowledged).length
                     }
                     checked={
-                      alerts.filter((a) => !a.acknowledged).length > 0 &&
-                      selectedAlerts.length === alerts.filter((a) => !a.acknowledged).length
+                      alerts.filter((a) => !a.is_acknowledged).length > 0 &&
+                      selectedAlerts.length === alerts.filter((a) => !a.is_acknowledged).length
                     }
                     onChange={handleSelectAll}
                   />
@@ -455,16 +455,16 @@ export default function Alerts() {
               ) : (
                 alerts.map((alert) => (
                   <TableRow
-                    key={alert.alert_id}
+                    key={alert.id}
                     sx={{
-                      bgcolor: alert.acknowledged ? 'transparent' : 'action.hover',
+                      bgcolor: alert.is_acknowledged ? 'transparent' : 'action.hover',
                     }}
                   >
                     <TableCell padding="checkbox">
                       <Checkbox
-                        checked={selectedAlerts.includes(alert.alert_id)}
-                        onChange={() => handleSelectAlert(alert.alert_id)}
-                        disabled={alert.acknowledged}
+                        checked={selectedAlerts.includes(alert.id)}
+                        onChange={() => handleSelectAlert(alert.id)}
+                        disabled={alert.is_acknowledged}
                       />
                     </TableCell>
                     <TableCell>
@@ -496,7 +496,7 @@ export default function Alerts() {
                     </TableCell>
                     <TableCell>{formatDate(alert.created_at)}</TableCell>
                     <TableCell>
-                      {alert.acknowledged ? (
+                      {alert.is_acknowledged ? (
                         <Tooltip title={`Acknowledged by ${alert.acknowledged_by || 'user'} on ${formatDate(alert.acknowledged_at || '')}`}>
                           <Chip size="small" label="Acknowledged" color="success" />
                         </Tooltip>
@@ -505,12 +505,12 @@ export default function Alerts() {
                       )}
                     </TableCell>
                     <TableCell align="center">
-                      {!alert.acknowledged && (
+                      {!alert.is_acknowledged && (
                         <Tooltip title="Acknowledge Alert">
                           <IconButton
                             size="small"
                             color="success"
-                            onClick={() => handleAcknowledge(alert.alert_id)}
+                            onClick={() => handleAcknowledge(alert.id)}
                             disabled={acknowledgeAlert.isPending}
                           >
                             <AcknowledgeIcon />

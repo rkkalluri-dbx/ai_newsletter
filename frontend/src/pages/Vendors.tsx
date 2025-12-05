@@ -25,6 +25,8 @@ import {
   Business as BusinessIcon,
   Add as AddIcon,
   TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  TrendingFlat as TrendingFlatIcon,
   Assignment as ProjectIcon,
   Edit as EditIcon,
 } from '@mui/icons-material';
@@ -41,8 +43,31 @@ interface Vendor {
   total_projects?: number;
   active_projects?: number;
   on_time_percentage?: number;
+  on_time_trend?: 'up' | 'down' | 'stable' | null;
   created_at: string;
 }
+
+// Helper to get trend icon based on performance change
+const getTrendIcon = (trend: 'up' | 'down' | 'stable' | null | undefined) => {
+  if (trend === 'down') {
+    return <TrendingDownIcon fontSize="small" sx={{ color: 'error.main' }} />;
+  }
+  if (trend === 'up') {
+    return <TrendingUpIcon fontSize="small" sx={{ color: 'success.main' }} />;
+  }
+  if (trend === 'stable') {
+    return <TrendingFlatIcon fontSize="small" sx={{ color: 'text.secondary' }} />;
+  }
+  // No trend data - show default icon
+  return <TrendingUpIcon fontSize="small" color="action" />;
+};
+
+// Helper to get progress bar color based on percentage
+const getProgressColor = (percentage: number): 'success' | 'warning' | 'error' => {
+  if (percentage >= 80) return 'success';
+  if (percentage >= 50) return 'warning';
+  return 'error';
+};
 
 export default function Vendors() {
   const navigate = useNavigate();
@@ -226,7 +251,7 @@ export default function Vendors() {
                       </Grid>
                       <Grid item xs={6}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <TrendingUpIcon fontSize="small" color="action" />
+                          {getTrendIcon(vendor.on_time_trend)}
                           <Typography variant="body2" color="text.secondary">
                             On-Time
                           </Typography>
@@ -236,17 +261,17 @@ export default function Vendors() {
                             <LinearProgress
                               variant="determinate"
                               value={vendor.on_time_percentage || 0}
-                              color={
-                                (vendor.on_time_percentage || 0) >= 80
-                                  ? 'success'
-                                  : (vendor.on_time_percentage || 0) >= 60
-                                  ? 'warning'
-                                  : 'error'
-                              }
+                              color={getProgressColor(vendor.on_time_percentage || 0)}
                               sx={{ height: 6, borderRadius: 3 }}
                             />
                           </Box>
-                          <Typography variant="body2" fontWeight="medium">
+                          <Typography
+                            variant="body2"
+                            fontWeight="medium"
+                            sx={{
+                              color: (vendor.on_time_percentage || 0) < 50 ? 'error.main' : 'inherit'
+                            }}
+                          >
                             {vendor.on_time_percentage || 0}%
                           </Typography>
                         </Box>

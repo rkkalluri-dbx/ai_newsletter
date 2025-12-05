@@ -29,6 +29,7 @@ import {
   useDashboardVendorPerformance,
   useDashboardNextActions,
   useDashboardRecentActivity,
+  useDashboardProjectIssues,
 } from '../hooks/useQueries';
 
 // Color palette for charts - matches backend ProjectStatus values
@@ -106,6 +107,7 @@ interface NextAction {
   days_until?: number;
   expected_date?: string;
   created_at?: string;
+  vendor_name?: string;
 }
 
 function NextActionsCard() {
@@ -181,15 +183,20 @@ function NextActionsCard() {
                     <Typography variant="body2" fontWeight="medium">
                       {action.title}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" display="block">
                       {action.description}
                     </Typography>
+                    {action.vendor_name && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block', mt: 0.5 }}>
+                        Vendor: {action.vendor_name}
+                      </Typography>
+                    )}
                     {action.type === 'overdue_milestone' && action.days_overdue && (
                       <Chip
                         size="small"
                         label={`${action.days_overdue} days overdue`}
                         color="error"
-                        sx={{ ml: 1, height: 20 }}
+                        sx={{ mt: 1, height: 20 }}
                       />
                     )}
                     {action.type === 'approaching_milestone' && action.days_until !== undefined && (
@@ -197,7 +204,7 @@ function NextActionsCard() {
                         size="small"
                         label={`${action.days_until} day(s) left`}
                         color="info"
-                        sx={{ ml: 1, height: 20 }}
+                        sx={{ mt: 1, height: 20 }}
                       />
                     )}
                   </Box>
@@ -216,6 +223,7 @@ interface RecentActivity {
   id: string;
   project_id: string;
   work_order_number?: string;
+  vendor_name?: string;
   action: string;
   description: string;
   user_email?: string;
@@ -276,9 +284,14 @@ function RecentActivityCard() {
                   <Typography variant="body2" fontWeight="medium">
                     {activity.work_order_number || 'Project'}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" display="block">
                     {activity.description}
                   </Typography>
+                  {activity.vendor_name && (
+                    <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic', display: 'block' }}>
+                      {activity.vendor_name}
+                    </Typography>
+                  )}
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Typography variant="caption" color="text.secondary">
@@ -295,6 +308,19 @@ function RecentActivityCard() {
   );
 }
 
+// Format status names for display
+const formatStatusName = (status: string): string => {
+  const statusLabels: Record<string, string> = {
+    authorized: 'Authorized',
+    assigned_to_vendor: 'Assigned',
+    design_submitted: 'Design Submitted',
+    qa_qc: 'QA/QC',
+    approved: 'Approved',
+    construction_ready: 'Construction Ready',
+  };
+  return statusLabels[status] || status.replace(/_/g, ' ');
+};
+
 function StatusDistributionChart() {
   const { data, isLoading, error } = useDashboardStatusDistribution();
 
@@ -307,7 +333,7 @@ function StatusDistributionChart() {
   }
 
   const chartData = data?.data?.map((item: { status: string; count: number }) => ({
-    name: item.status.replace('_', ' ').charAt(0).toUpperCase() + item.status.replace('_', ' ').slice(1),
+    name: formatStatusName(item.status),
     value: item.count,
     color: STATUS_COLORS[item.status] || '#9E9E9E',
   })) || [];
@@ -320,23 +346,28 @@ function StatusDistributionChart() {
       {isLoading ? (
         <Skeleton variant="circular" width={200} height={200} sx={{ mx: 'auto' }} />
       ) : (
-        <ResponsiveContainer width="100%" height={250}>
+        <ResponsiveContainer width="100%" height={280}>
           <PieChart>
             <Pie
               data={chartData}
               cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={90}
+              cy="45%"
+              innerRadius={50}
+              outerRadius={80}
               paddingAngle={2}
               dataKey="value"
-              label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
             >
               {chartData.map((entry: { name: string; value: number; color: string }, index: number) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip />
+            <Tooltip formatter={(value: number, name: string) => [`${value} projects`, name]} />
+            <Legend
+              layout="horizontal"
+              verticalAlign="bottom"
+              align="center"
+              wrapperStyle={{ paddingTop: '10px' }}
+            />
           </PieChart>
         </ResponsiveContainer>
       )}
@@ -368,12 +399,105 @@ function RegionDistributionChart() {
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="region" />
+            <XAxis dataKey="region" interval={0} angle={-30} textAnchor="end" height={60} style={{ fontSize: '11px' }} />
             <YAxis />
             <Tooltip />
             <Bar dataKey="count" fill="#1976D2">
               {chartData.map((_: unknown, index: number) => (
                 <Cell key={`cell-${index}`} fill={REGION_COLORS[index % REGION_COLORS.length]} />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  );
+}
+
+
+
+function BottomVendorPerformanceChart() {
+  const { data, isLoading, error } = useDashboardVendorPerformance(5, 'performance', 'asc');
+
+  if (error) {
+    return (
+      <Paper sx={{ p: 2, height: '100%' }}>
+        <Alert severity="error">Failed to load bottom vendor performance</Alert>
+      </Paper>
+    );
+  }
+
+  const chartData = data?.data || [];
+
+  return (
+    <Paper sx={{ p: 2, height: '100%' }}>
+      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <WarningIcon color="error" />
+        Lowest Vendor Performance
+      </Typography>
+      {isLoading ? (
+        <Skeleton variant="rectangular" height={250} />
+      ) : (
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={chartData} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" domain={[0, 100]} />
+            <YAxis dataKey="vendor_name" type="category" width={100} />
+            <Tooltip formatter={(value: number) => [`${value}%`, 'On-Time %']} />
+            <Legend />
+            <Bar dataKey="on_time_percentage" fill="#F44336" name="On-Time %" />
+          </BarChart>
+        </ResponsiveContainer>
+      )}
+    </Paper>
+  );
+}
+
+function ProjectIssuesChart() {
+  const { data, isLoading, error } = useDashboardProjectIssues();
+
+  if (error) {
+    return (
+      <Paper sx={{ p: 2, height: '100%' }}>
+        <Alert severity="error">Failed to load project issues</Alert>
+      </Paper>
+    );
+  }
+
+  const chartData = data?.data || [];
+
+  return (
+    <Paper sx={{ p: 2, height: '100%' }}>
+      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <WarningIcon color="error" />
+        Project Issues
+      </Typography>
+      {isLoading ? (
+        <Skeleton variant="rectangular" height={250} />
+      ) : (
+        <ResponsiveContainer width="100%" height={250}>
+          <BarChart data={chartData} layout="vertical">
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis type="number" />
+            <YAxis dataKey="name" type="category" width={100} style={{ fontSize: '12px' }} />
+            <Tooltip
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const data = payload[0].payload;
+                  return (
+                    <Paper sx={{ p: 1 }}>
+                      <Typography variant="body2" fontWeight="bold">{data.name}</Typography>
+                      <Typography variant="body2" color="error.main">{data.value} projects</Typography>
+                      <Typography variant="caption" display="block">{data.description}</Typography>
+                    </Paper>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Bar dataKey="value" name="Count">
+              {chartData.map((entry: any, index: number) => (
+                <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Bar>
           </BarChart>
@@ -440,7 +564,7 @@ export default function Dashboard() {
   return (
     <Box>
       <Typography variant="h4" gutterBottom>
-        Dashboard
+        Dashboard - Live View
       </Typography>
       <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
         GPC Reliability Project Workflow Overview
@@ -499,7 +623,17 @@ export default function Dashboard() {
           <RegionDistributionChart />
         </Grid>
         <Grid item xs={12} md={4}>
+          <ProjectIssuesChart />
+        </Grid>
+      </Grid>
+
+      {/* Vendor Performance Row */}
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={6}>
           <VendorPerformanceChart />
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <BottomVendorPerformanceChart />
         </Grid>
       </Grid>
 

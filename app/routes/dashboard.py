@@ -37,14 +37,7 @@ def get_summary():
     """
     overdue_result = db.execute(overdue_query)
 
-    # Status breakdown
-    breakdown_query = f"""
-        SELECT status, COUNT(*) as count
-        FROM {table_name('projects')}
-        GROUP BY status
-        ORDER BY count DESC
-    """
-    breakdown_result = db.execute(breakdown_query)
+
 
     # Unacknowledged alerts
     alerts_query = f"""
@@ -85,10 +78,7 @@ def get_summary():
             "vendors": {
                 "active": vendor_data.get("count", 0)
             },
-            "status_breakdown": [
-                {"status": row["status"], "count": row["count"]}
-                for row in breakdown_result
-            ]
+
         }
     })
 
@@ -110,9 +100,10 @@ def get_next_actions():
 
     # 1. Critical unacknowledged alerts
     critical_alerts_query = f"""
-        SELECT a.*, p.work_order_number
+        SELECT a.*, p.work_order_number, v.name as vendor_name
         FROM {table_name('alerts')} a
         JOIN {table_name('projects')} p ON a.project_id = p.id
+        LEFT JOIN {table_name('vendors')} v ON p.vendor_id = v.id
         WHERE a.is_acknowledged = false AND a.severity = 'critical'
         ORDER BY a.created_at DESC
         LIMIT 10
@@ -126,15 +117,17 @@ def get_next_actions():
             "description": f"Work Order: {alert.get('work_order_number')}",
             "project_id": alert["project_id"],
             "work_order_number": alert.get("work_order_number"),
+            "vendor_name": alert.get("vendor_name"),
             "alert_id": alert["id"],
             "created_at": alert["created_at"].isoformat() if alert.get("created_at") else None
         })
 
     # 2. Overdue milestones
     overdue_query = f"""
-        SELECT m.*, p.work_order_number, p.priority as project_priority
+        SELECT m.*, p.work_order_number, p.priority as project_priority, v.name as vendor_name
         FROM {table_name('milestones')} m
         JOIN {table_name('projects')} p ON m.project_id = p.id
+        LEFT JOIN {table_name('vendors')} v ON p.vendor_id = v.id
         WHERE m.is_overdue = true AND m.actual_date IS NULL
         ORDER BY
             CASE p.priority
@@ -155,6 +148,7 @@ def get_next_actions():
             "description": f"{milestone.get('days_overdue', 0)} days overdue - {milestone.get('work_order_number')}",
             "project_id": milestone["project_id"],
             "work_order_number": milestone.get("work_order_number"),
+            "vendor_name": milestone.get("vendor_name"),
             "milestone_id": milestone["id"],
             "stage": milestone.get("stage"),
             "days_overdue": milestone.get("days_overdue", 0),
@@ -165,9 +159,10 @@ def get_next_actions():
     today = datetime.utcnow().date()
     upcoming_date = (datetime.utcnow() + timedelta(days=3)).date()
     approaching_query = f"""
-        SELECT m.*, p.work_order_number, p.priority as project_priority
+        SELECT m.*, p.work_order_number, p.priority as project_priority, v.name as vendor_name
         FROM {table_name('milestones')} m
         JOIN {table_name('projects')} p ON m.project_id = p.id
+        LEFT JOIN {table_name('vendors')} v ON p.vendor_id = v.id
         WHERE m.actual_date IS NULL
           AND m.expected_date BETWEEN '{today}' AND '{upcoming_date}'
         ORDER BY m.expected_date ASC
@@ -183,6 +178,7 @@ def get_next_actions():
             "description": f"Due in {days_until} day(s) - {milestone.get('work_order_number')}",
             "project_id": milestone["project_id"],
             "work_order_number": milestone.get("work_order_number"),
+            "vendor_name": milestone.get("vendor_name"),
             "milestone_id": milestone["id"],
             "stage": milestone.get("stage"),
             "days_until": days_until,
@@ -191,9 +187,10 @@ def get_next_actions():
 
     # 4. Warning alerts
     warning_alerts_query = f"""
-        SELECT a.*, p.work_order_number
+        SELECT a.*, p.work_order_number, v.name as vendor_name
         FROM {table_name('alerts')} a
         JOIN {table_name('projects')} p ON a.project_id = p.id
+        LEFT JOIN {table_name('vendors')} v ON p.vendor_id = v.id
         WHERE a.is_acknowledged = false AND a.severity = 'warning'
         ORDER BY a.created_at DESC
         LIMIT 10
@@ -207,6 +204,7 @@ def get_next_actions():
             "description": f"Work Order: {alert.get('work_order_number')}",
             "project_id": alert["project_id"],
             "work_order_number": alert.get("work_order_number"),
+            "vendor_name": alert.get("vendor_name"),
             "alert_id": alert["id"],
             "created_at": alert["created_at"].isoformat() if alert.get("created_at") else None
         })
@@ -290,7 +288,16 @@ def get_vendor_performance():
         - limit: Number of vendors to return (default: 10)
     """
     limit = min(request.args.get("limit", 10, type=int), 50)
+    sort_by = request.args.get("sort_by", "volume")  # volume, performance
+    order = request.args.get("order", "desc")        # asc, desc
 
+    order_clause = "ps.total_projects DESC NULLS LAST"
+    if sort_by == "performance":
+        if order == "asc":
+            order_clause = "vm.on_time_rate ASC NULLS LAST"
+        else:
+            order_clause = "vm.on_time_rate DESC NULLS LAST"
+    
     query = f"""
         SELECT
             v.id as vendor_id,
@@ -316,7 +323,7 @@ def get_vendor_performance():
             FROM {table_name('vendor_metrics')}
         ) vm ON v.id = vm.vendor_id AND vm.rn = 1
         WHERE v.is_active = true
-        ORDER BY ps.total_projects DESC NULLS LAST
+        ORDER BY {order_clause}
         LIMIT {limit}
     """
     rows = db.execute(query)
@@ -340,7 +347,9 @@ def get_vendor_performance():
 @dashboard_bp.route("/recent-activity", methods=["GET"])
 def get_recent_activity():
     """Get recent project activity for dashboard timeline.
-
+    
+    Updated to include vendor information.
+    
     Query params:
         - limit: Number of activities to return (default: 20)
     """
@@ -356,9 +365,11 @@ def get_recent_activity():
             al.new_value,
             al.user_email,
             al.created_at,
-            p.work_order_number
+            p.work_order_number,
+            v.name as vendor_name
         FROM {table_name('audit_logs')} al
         JOIN {table_name('projects')} p ON al.project_id = p.id
+        LEFT JOIN {table_name('vendors')} v ON p.vendor_id = v.id
         ORDER BY al.created_at DESC
         LIMIT {limit}
     """
@@ -378,13 +389,80 @@ def get_recent_activity():
             "id": row["id"],
             "project_id": row["project_id"],
             "work_order_number": row.get("work_order_number"),
+            "vendor_name": row.get("vendor_name"),
             "action": action,
             "description": description,
-            "user_email": row.get("user_email"),
+            "user_email": row["user_email"],
             "created_at": row["created_at"].isoformat() if row.get("created_at") else None
         })
 
     return jsonify({
         "data": activities,
         "total": len(activities)
+    })
+
+
+@dashboard_bp.route("/project-issues", methods=["GET"])
+def get_project_issues():
+    """Get project issues metrics for the dashboard.
+
+    Returns specific metrics identifying potential problems:
+    1. Overdue Projects
+    2. Critical Alerts
+    3. High Priority Projects (needing attention)
+    4. Stalled Projects (no updates > 14 days)
+    """
+    # 1. Overdue Projects
+    # Count unique projects with overdue milestones
+    overdue_query = f"""
+        SELECT COUNT(DISTINCT project_id) as count
+        FROM {table_name('milestones')}
+        WHERE is_overdue = true AND actual_date IS NULL
+    """
+    overdue_result = db.execute(overdue_query)
+    overdue_count = overdue_result[0]["count"] if overdue_result else 0
+
+    # 2. Critical Active Alerts
+    # Count unique projects with unacknowledged critical alerts
+    alerts_query = f"""
+        SELECT COUNT(DISTINCT project_id) as count
+        FROM {table_name('alerts')}
+        WHERE is_acknowledged = false AND severity = 'critical'
+    """
+    alerts_result = db.execute(alerts_query)
+    alerts_count = alerts_result[0]["count"] if alerts_result else 0
+
+    # 3. High/Critical Priority Projects
+    # Count active projects marked as high or critical priority
+    priority_query = f"""
+        SELECT COUNT(*) as count
+        FROM {table_name('projects')}
+        WHERE status != 'construction_ready'
+          AND priority IN ('high', 'critical')
+    """
+    priority_result = db.execute(priority_query)
+    priority_count = priority_result[0]["count"] if priority_result else 0
+
+    # 4. Stalled Projects
+    # Active projects not updated in the last 14 days
+    fourteen_days_ago = (datetime.utcnow() - timedelta(days=14)).isoformat()
+    stalled_query = f"""
+        SELECT COUNT(*) as count
+        FROM {table_name('projects')}
+        WHERE status != 'construction_ready'
+          AND updated_at < '{fourteen_days_ago}'
+    """
+    stalled_result = db.execute(stalled_query)
+    stalled_count = stalled_result[0]["count"] if stalled_result else 0
+
+    # Format for chart (Recharts)
+    chart_data = [
+        {"name": "Overdue", "value": overdue_count, "color": "#F44336", "description": "Projects with overdue milestones"},
+        {"name": "Critical Alerts", "value": alerts_count, "color": "#D32F2F", "description": "Projects with unacknowledged critical alerts"},
+        {"name": "High Priority", "value": priority_count, "color": "#FF9800", "description": "Active high/critical priority projects"},
+        {"name": "Stalled", "value": stalled_count, "color": "#FFC107", "description": "No activity in 14+ days"}
+    ]
+
+    return jsonify({
+        "data": chart_data
     })
