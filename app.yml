@@ -1,0 +1,31 @@
+command:
+  - "gunicorn"
+  - "wsgi:app"
+  - "--bind"
+  - "0.0.0.0:8000"
+  - "--workers"
+  - "2"
+  - "--timeout"
+  - "120"
+  - "--access-logfile"
+  - "-"
+  - "--error-logfile"
+  - "-"
+  - "--log-level"
+  - "debug"
+
+env:
+  - name: FLASK_ENV
+    value: production
+  - name: FLASK_APP
+    value: wsgi:app
+  - name: FLASK_SECRET_KEY
+    value: gpc-reliability-prod-secret-key-2024
+  - name: DATABRICKS_SERVER_HOSTNAME
+    value: adb-3268035903553121.1.azuredatabricks.net
+  - name: DATABRICKS_HTTP_PATH
+    value: /sql/1.0/warehouses/e5ecfb6a56491fdb
+  - name: DATABRICKS_CATALOG
+    value: main
+  - name: DATABRICKS_SCHEMA
+    value: gpc_reliability

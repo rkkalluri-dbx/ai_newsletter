@@ -1,1 +1,0 @@
-- Use https://apps-cookbook.dev/ for Databricks apps recipes

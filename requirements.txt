@@ -1,0 +1,19 @@
+# Flask and extensions
+Flask>=3.0.0
+Flask-Cors>=4.0.0
+
+# Databricks connectivity
+databricks-sql-connector>=3.0.0
+databricks-sdk>=0.20.0
+
+# Utilities
+python-dotenv>=1.0.0
+gunicorn>=21.0.0
+
+# Development
+pytest>=7.4.0
+pytest-cov>=4.1.0
+httpx>=0.25.0
+black>=23.0.0
+flake8>=6.1.0
+mypy>=1.7.0
