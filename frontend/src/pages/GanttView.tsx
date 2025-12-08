@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import {
   Typography,
   Box,
@@ -70,6 +71,15 @@ interface GanttProject {
     is_complete: boolean;
     is_current: boolean;
     is_overdue: boolean;
+  }[];
+  status_periods?: {  // NEW: Full lifecycle timeline
+    status: string;
+    status_label: string;
+    start_date: string;
+    end_date: string | null;
+    is_completed: boolean;
+    is_current: boolean;
+    duration_days: number;
   }[];
 }
 
@@ -154,6 +164,25 @@ export default function GanttView() {
       left: `${left}%`,
       width: `${width}%`,
     };
+  };
+
+  // Calculate position and width for a status period segment
+  const calculateSegmentStyle = (
+    period: { start_date: string; end_date: string | null; is_current?: boolean },
+    rangeStart: Date,
+    rangeEnd: Date
+  ) => {
+    const totalDays = dayjs(rangeEnd).diff(dayjs(rangeStart), 'day');
+    const segmentStart = dayjs(period.start_date);
+    const segmentEnd = period.end_date ? dayjs(period.end_date) : dayjs(rangeEnd);
+
+    const daysFromStart = segmentStart.diff(dayjs(rangeStart), 'day');
+    const segmentDuration = segmentEnd.diff(segmentStart, 'day');
+
+    const left = Math.max(0, (daysFromStart / totalDays) * 100);
+    const width = Math.min(100 - left, (segmentDuration / totalDays) * 100);
+
+    return { left, width };
   };
 
   // Check if date is within timeline
@@ -475,91 +504,138 @@ export default function GanttView() {
                     />
                   )}
 
-                  {/* Project Bar */}
-                  <Tooltip
-                    title={
-                      <Box>
-                        <Typography variant="body2" fontWeight="bold">
-                          {project.work_order_number}
-                        </Typography>
-                        <Typography variant="caption" display="block">
-                          Status: {project.status_label}
-                        </Typography>
-                        <Typography variant="caption" display="block">
-                          Progress: {project.completed_milestones}/{project.total_milestones} milestones
-                        </Typography>
-                        <Typography variant="caption" display="block">
-                          {project.start_date} to {project.end_date}
-                        </Typography>
-                      </Box>
-                    }
-                    placement="top"
-                    arrow
-                  >
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        ...barStyle,
-                        height: 24,
-                        bgcolor: STATUS_COLORS[project.status] || '#2196F3',
-                        borderRadius: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                        '&:hover': { opacity: 0.9 },
-                        zIndex: 1,
-                      }}
-                      onClick={() => navigate(`/projects/${project.id}`)}
-                    >
-                      {/* Progress fill */}
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          width: `${project.progress}%`,
-                          bgcolor: 'rgba(255,255,255,0.3)',
-                        }}
-                      />
+                  {/* Project Bar - Multi-segment Timeline */}
+                  <Box sx={{ position: 'relative', height: '32px', width: '100%' }}>
+                    {project.status_periods && project.status_periods.length > 0 ? (
+                      // Multi-segment timeline showing full project lifecycle
+                      project.status_periods.map((period, idx) => {
+                        const { left, width } = calculateSegmentStyle(period, timelineStart, timelineEnd);
 
-                      {/* Milestone markers */}
-                      {project.milestones.map((milestone, mIndex) => {
-                        const dateToUse = milestone.actual_date || milestone.expected_date;
-                        if (!dateToUse || !isDateInTimeline(dateToUse)) return null;
-
-                        const position = getDatePosition(dateToUse);
-                        const barLeft = parseFloat(barStyle.left);
-                        const barWidth = parseFloat(barStyle.width);
-                        const relativePosition = ((position - barLeft) / barWidth) * 100;
-
-                        if (relativePosition < 0 || relativePosition > 100) return null;
+                        // Skip segments that are completely outside the visible range
+                        if (width <= 0) return null;
 
                         return (
                           <Tooltip
-                            key={mIndex}
-                            title={`${milestone.stage_label}: ${dateToUse}`}
+                            key={idx}
+                            title={`${period.status_label}: ${period.start_date} - ${period.end_date || 'Present'} (${period.duration_days} days)`}
                             placement="top"
+                            arrow
                           >
                             <Box
                               sx={{
                                 position: 'absolute',
-                                left: `${relativePosition}%`,
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                bgcolor: milestone.is_complete ? 'white' : (milestone.is_overdue ? 'error.main' : 'rgba(255,255,255,0.5)'),
-                                border: milestone.is_current ? 2 : 0,
-                                borderColor: 'white',
-                                transform: 'translateX(-50%)',
+                                left: `${left}%`,
+                                width: `${width}%`,
+                                height: '24px',
+                                top: '4px',
+                                backgroundColor: STATUS_COLORS[period.status] || '#2196F3',
+                                border: period.is_current ? '3px solid #000' : 'none',
+                                boxSizing: 'border-box',
+                                borderRight: idx < (project.status_periods?.length || 0) - 1 ? '1px solid rgba(255,255,255,0.8)' : 'none',
+                                borderRadius: idx === 0 ? '4px 0 0 4px' : (idx === (project.status_periods?.length || 0) - 1 ? '0 4px 4px 0' : '0'),
+                                transition: 'all 0.2s ease',
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  opacity: 0.85,
+                                  transform: 'scaleY(1.1)',
+                                  zIndex: 10,
+                                },
+                                zIndex: period.is_current ? 2 : 1,
                               }}
+                              onClick={() => navigate(`/projects/${project.id}`)}
                             />
                           </Tooltip>
                         );
-                      })}
-                    </Box>
-                  </Tooltip>
+                      })
+                    ) : (
+                      // Fallback: Single bar for projects without status_periods
+                      <Tooltip
+                        title={
+                          <Box>
+                            <Typography variant="body2" fontWeight="bold">
+                              {project.work_order_number}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              Status: {project.status_label}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              Progress: {project.completed_milestones}/{project.total_milestones} milestones
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              {project.start_date} to {project.end_date}
+                            </Typography>
+                          </Box>
+                        }
+                        placement="top"
+                        arrow
+                      >
+                        <Box
+                          sx={{
+                            position: 'absolute',
+                            ...barStyle,
+                            height: 24,
+                            top: '4px',
+                            bgcolor: STATUS_COLORS[project.status] || '#2196F3',
+                            borderRadius: 1,
+                            display: 'flex',
+                            alignItems: 'center',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            '&:hover': { opacity: 0.9 },
+                            zIndex: 1,
+                          }}
+                          onClick={() => navigate(`/projects/${project.id}`)}
+                        >
+                          {/* Progress fill */}
+                          <Box
+                            sx={{
+                              position: 'absolute',
+                              left: 0,
+                              top: 0,
+                              bottom: 0,
+                              width: `${project.progress}%`,
+                              bgcolor: 'rgba(255,255,255,0.3)',
+                            }}
+                          />
+
+                          {/* Milestone markers */}
+                          {project.milestones.map((milestone, mIndex) => {
+                            const dateToUse = milestone.actual_date || milestone.expected_date;
+                            if (!dateToUse || !isDateInTimeline(dateToUse)) return null;
+
+                            const position = getDatePosition(dateToUse);
+                            const barLeft = parseFloat(barStyle.left);
+                            const barWidth = parseFloat(barStyle.width);
+                            const relativePosition = ((position - barLeft) / barWidth) * 100;
+
+                            if (relativePosition < 0 || relativePosition > 100) return null;
+
+                            return (
+                              <Tooltip
+                                key={mIndex}
+                                title={`${milestone.stage_label}: ${dateToUse}`}
+                                placement="top"
+                              >
+                                <Box
+                                  sx={{
+                                    position: 'absolute',
+                                    left: `${relativePosition}%`,
+                                    width: 6,
+                                    height: 6,
+                                    borderRadius: '50%',
+                                    bgcolor: milestone.is_complete ? 'white' : (milestone.is_overdue ? 'error.main' : 'rgba(255,255,255,0.5)'),
+                                    border: milestone.is_current ? 2 : 0,
+                                    borderColor: 'white',
+                                    transform: 'translateX(-50%)',
+                                  }}
+                                />
+                              </Tooltip>
+                            );
+                          })}
+                        </Box>
+                      </Tooltip>
+                    )}
+                  </Box>
                 </Box>
               </Box>
             );
@@ -569,22 +645,33 @@ export default function GanttView() {
 
       {/* Legend */}
       <Paper sx={{ p: 2, mt: 2 }}>
-        <Typography variant="subtitle2" gutterBottom>
-          Legend
-        </Typography>
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Typography variant="subtitle2">
+            Legend
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            Timeline shows project lifecycle with color-coded status transitions
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Box sx={{ width: 20, height: 2, bgcolor: 'error.main' }} />
             <Typography variant="caption">Today</Typography>
           </Box>
+          <Box sx={{ width: 1, height: 20, bgcolor: 'divider' }} />
           {Object.entries(STATUS_COLORS).map(([status, color]) => (
             <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box sx={{ width: 16, height: 16, bgcolor: color, borderRadius: 0.5 }} />
+              <Box sx={{ width: 20, height: 16, bgcolor: color, borderRadius: 0.5 }} />
               <Typography variant="caption">
                 {status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
               </Typography>
             </Box>
           ))}
+          <Box sx={{ width: 1, height: 20, bgcolor: 'divider' }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ width: 20, height: 16, bgcolor: '#4CAF50', border: '3px solid #000', boxSizing: 'border-box', borderRadius: 0.5 }} />
+            <Typography variant="caption">Current Status</Typography>
+          </Box>
         </Box>
       </Paper>
     </Box>

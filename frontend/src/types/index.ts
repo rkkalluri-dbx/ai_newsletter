@@ -119,3 +119,17 @@ export interface NextAction {
   urgency: 'high' | 'medium' | 'low';
   days_overdue: number;
 }
+
+// Status period for Gantt chart timeline (represents a period in a specific status)
+export interface StatusPeriod {
+  status: string;
+  status_label: string;
+  start_date: string;
+  end_date: string | null; // null if current/ongoing status
+  is_completed: boolean;
+  is_current: boolean;
+  duration_days: number;
+}
+
+// View mode for Gantt chart timeline granularity
+export type ViewMode = 'week' | 'month' | 'quarter' | 'year';

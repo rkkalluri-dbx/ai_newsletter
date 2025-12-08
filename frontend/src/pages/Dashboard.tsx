@@ -31,18 +31,8 @@ import {
   useDashboardRecentActivity,
   useDashboardProjectIssues,
 } from '../hooks/useQueries';
+import { CHART_COLORS } from '../theme';
 
-// Color palette for charts - matches backend ProjectStatus values
-const STATUS_COLORS: Record<string, string> = {
-  authorized: '#2196F3',
-  assigned_to_vendor: '#9C27B0',
-  design_submitted: '#FF9800',
-  qa_qc: '#00BCD4',
-  approved: '#4CAF50',
-  construction_ready: '#8BC34A',
-};
-
-const REGION_COLORS = ['#1976D2', '#388E3C', '#F57C00', '#7B1FA2', '#C2185B'];
 
 interface SummaryCardProps {
   title: string;
@@ -54,38 +44,51 @@ interface SummaryCardProps {
 }
 
 function SummaryCard({ title, value, subtitle, icon, color, loading }: SummaryCardProps) {
+
   return (
-    <Card sx={{ height: '100%' }}>
+    <Card sx={{ height: '100%', position: 'relative', overflow: 'hidden' }}>
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          width: '100px',
+          height: '100px',
+          background: `linear-gradient(135deg, transparent 50%, ${color}15 50%)`,
+          borderRadius: '0 0 0 100%',
+        }}
+      />
       <CardContent>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <Box>
-            <Typography color="text.secondary" variant="body2" gutterBottom>
+            <Typography color="text.secondary" variant="subtitle2" gutterBottom sx={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               {title}
             </Typography>
             {loading ? (
               <Skeleton width={60} height={40} />
             ) : (
-              <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
+              <Typography variant="h3" component="div" sx={{ fontWeight: 700, color: 'text.primary' }}>
                 {value}
               </Typography>
             )}
             {subtitle && (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1, display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 {subtitle}
               </Typography>
             )}
           </Box>
           <Box
             sx={{
-              backgroundColor: `${color}15`,
-              borderRadius: 2,
-              p: 1,
+              backgroundColor: `${color}10`,
+              borderRadius: '12px',
+              p: 1.5,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              color: color,
             }}
           >
-            <Box sx={{ color }}>{icon}</Box>
+            {icon}
           </Box>
         </Box>
       </CardContent>
@@ -332,14 +335,14 @@ function StatusDistributionChart() {
     );
   }
 
-  const chartData = data?.data?.map((item: { status: string; count: number }) => ({
+  const chartData = data?.data?.map((item: { status: string; count: number }, index: number) => ({
     name: formatStatusName(item.status),
     value: item.count,
-    color: STATUS_COLORS[item.status] || '#9E9E9E',
+    color: CHART_COLORS[index % CHART_COLORS.length],
   })) || [];
 
   return (
-    <Paper sx={{ p: 2, height: '100%' }}>
+    <Paper sx={{ p: 3, height: '100%' }}>
       <Typography variant="h6" gutterBottom>
         Project Status Distribution
       </Typography>
@@ -352,21 +355,26 @@ function StatusDistributionChart() {
               data={chartData}
               cx="50%"
               cy="45%"
-              innerRadius={50}
-              outerRadius={80}
+              innerRadius={60}
+              outerRadius={90}
               paddingAngle={2}
               dataKey="value"
+              stroke="none"
             >
               {chartData.map((entry: { name: string; value: number; color: string }, index: number) => (
                 <Cell key={`cell-${index}`} fill={entry.color} />
               ))}
             </Pie>
-            <Tooltip formatter={(value: number, name: string) => [`${value} projects`, name]} />
+            <Tooltip
+              formatter={(value: number, name: string) => [`${value} projects`, name]}
+              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+            />
             <Legend
               layout="horizontal"
               verticalAlign="bottom"
               align="center"
-              wrapperStyle={{ paddingTop: '10px' }}
+              wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}
+              iconType="circle"
             />
           </PieChart>
         </ResponsiveContainer>
@@ -389,7 +397,7 @@ function RegionDistributionChart() {
   const chartData = data?.data || [];
 
   return (
-    <Paper sx={{ p: 2, height: '100%' }}>
+    <Paper sx={{ p: 3, height: '100%' }}>
       <Typography variant="h6" gutterBottom>
         Projects by Region
       </Typography>
@@ -398,13 +406,24 @@ function RegionDistributionChart() {
       ) : (
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="region" interval={0} angle={-30} textAnchor="end" height={60} style={{ fontSize: '11px' }} />
-            <YAxis />
-            <Tooltip />
-            <Bar dataKey="count" fill="#1976D2">
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0E0E0" />
+            <XAxis
+              dataKey="region"
+              interval={0}
+              angle={-30}
+              textAnchor="end"
+              height={60}
+              style={{ fontSize: '11px', fontWeight: 500 }}
+              tick={{ fill: '#525252' }}
+            />
+            <YAxis tick={{ fill: '#525252' }} />
+            <Tooltip
+              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+            />
+            <Bar dataKey="count" radius={[4, 4, 0, 0]}>
               {chartData.map((_: unknown, index: number) => (
-                <Cell key={`cell-${index}`} fill={REGION_COLORS[index % REGION_COLORS.length]} />
+                <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
               ))}
             </Bar>
           </BarChart>
@@ -430,7 +449,7 @@ function BottomVendorPerformanceChart() {
   const chartData = data?.data || [];
 
   return (
-    <Paper sx={{ p: 2, height: '100%' }}>
+    <Paper sx={{ p: 3, height: '100%' }}>
       <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <WarningIcon color="error" />
         Lowest Vendor Performance
@@ -440,12 +459,16 @@ function BottomVendorPerformanceChart() {
       ) : (
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={chartData} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" domain={[0, 100]} />
-            <YAxis dataKey="vendor_name" type="category" width={100} />
-            <Tooltip formatter={(value: number) => [`${value}%`, 'On-Time %']} />
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E0E0E0" />
+            <XAxis type="number" domain={[0, 100]} tick={{ fill: '#525252' }} />
+            <YAxis dataKey="vendor_name" type="category" width={100} tick={{ fill: '#525252', fontSize: 12 }} />
+            <Tooltip
+              formatter={(value: number) => [`${value}%`, 'On-Time %']}
+              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+            />
             <Legend />
-            <Bar dataKey="on_time_percentage" fill="#F44336" name="On-Time %" />
+            <Bar dataKey="on_time_percentage" fill={CHART_COLORS[4]} name="On-Time %" radius={[0, 4, 4, 0]} barSize={20} />
           </BarChart>
         </ResponsiveContainer>
       )}
@@ -521,7 +544,7 @@ function VendorPerformanceChart() {
   const chartData = data?.data || [];
 
   return (
-    <Paper sx={{ p: 2, height: '100%' }}>
+    <Paper sx={{ p: 3, height: '100%' }}>
       <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <BusinessIcon color="primary" />
         Top Vendor Performance
@@ -531,12 +554,16 @@ function VendorPerformanceChart() {
       ) : (
         <ResponsiveContainer width="100%" height={250}>
           <BarChart data={chartData} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis type="number" domain={[0, 100]} />
-            <YAxis dataKey="vendor_name" type="category" width={100} />
-            <Tooltip formatter={(value: number) => [`${value}%`, 'On-Time %']} />
+            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#E0E0E0" />
+            <XAxis type="number" domain={[0, 100]} tick={{ fill: '#525252' }} />
+            <YAxis dataKey="vendor_name" type="category" width={100} tick={{ fill: '#525252', fontSize: 12 }} />
+            <Tooltip
+              formatter={(value: number) => [`${value}%`, 'On-Time %']}
+              contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+              cursor={{ fill: 'rgba(0,0,0,0.05)' }}
+            />
             <Legend />
-            <Bar dataKey="on_time_percentage" fill="#4CAF50" name="On-Time %" />
+            <Bar dataKey="on_time_percentage" fill={CHART_COLORS[0]} name="On-Time %" radius={[0, 4, 4, 0]} barSize={20} />
           </BarChart>
         </ResponsiveContainer>
       )}

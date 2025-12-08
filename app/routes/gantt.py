@@ -22,6 +22,81 @@ STAGE_ORDER = [
 ]
 
 
+def build_status_periods(project, status_changes):
+    """Build status period timeline from audit log changes.
+
+    Args:
+        project: Project dict with authorized_date and current status
+        status_changes: List of audit log STATUS_CHANGE records ordered by created_at
+
+    Returns:
+        List of status period dicts with start_date, end_date, is_current, etc.
+    """
+    periods = []
+    today = date.today()
+
+    # CASE 1: No status changes (never changed status)
+    if not status_changes:
+        return [{
+            "status": project["status"],
+            "status_label": project["status"].replace("_", " ").title(),
+            "start_date": project["authorized_date"].isoformat() if project.get("authorized_date") else None,
+            "end_date": None,  # Ongoing
+            "is_completed": False,
+            "is_current": True,
+            "duration_days": (today - project["authorized_date"]).days if project.get("authorized_date") else 0
+        }]
+
+    # CASE 2: Has status changes - build timeline
+    # First period: From project start to first change
+    first_change = status_changes[0]
+    authorized_date = project.get("authorized_date")
+
+    if authorized_date:
+        periods.append({
+            "status": first_change["old_value"],
+            "status_label": first_change["old_value"].replace("_", " ").title(),
+            "start_date": authorized_date.isoformat(),
+            "end_date": first_change["created_at"].isoformat() if hasattr(first_change["created_at"], 'isoformat') else str(first_change["created_at"]),
+            "is_completed": True,
+            "is_current": False,
+            "duration_days": (first_change["created_at"].date() - authorized_date).days if hasattr(first_change["created_at"], 'date') else 0
+        })
+
+    # Intermediate periods: Between status changes
+    for i in range(len(status_changes)):
+        current_change = status_changes[i]
+        next_change = status_changes[i+1] if i+1 < len(status_changes) else None
+
+        current_date = current_change["created_at"]
+        if hasattr(current_date, 'date'):
+            current_date_obj = current_date.date()
+        else:
+            current_date_obj = current_date
+
+        if next_change:
+            next_date = next_change["created_at"]
+            if hasattr(next_date, 'date'):
+                next_date_obj = next_date.date()
+            else:
+                next_date_obj = next_date
+            duration = (next_date_obj - current_date_obj).days
+        else:
+            duration = (today - current_date_obj).days
+
+        periods.append({
+            "status": current_change["new_value"],
+            "status_label": current_change["new_value"].replace("_", " ").title(),
+            "start_date": current_change["created_at"].isoformat() if hasattr(current_change["created_at"], 'isoformat') else str(current_change["created_at"]),
+            "end_date": next_change["created_at"].isoformat() if next_change and hasattr(next_change["created_at"], 'isoformat') else (str(next_change["created_at"]) if next_change else None),
+            "is_completed": next_change is not None,
+            "is_current": next_change is None,  # Last period is current
+            "duration_days": duration
+        })
+
+    return periods
+
+
 @gantt_bp.route("", methods=["GET"])
 def get_gantt_data():
     """Get project data formatted for Gantt chart display.
@@ -60,11 +135,25 @@ def get_gantt_data():
         conditions.append(f"p.priority IN ({','.join(priorities)})")
 
     date_from = request.args.get("date_from")
-    if date_from:
-        conditions.append(f"p.authorized_date >= '{date_from}'")
-
     date_to = request.args.get("date_to")
-    if date_to:
+
+    # Date range filtering: Show projects active during the selected timeframe
+    if date_from and date_to:
+        # Project overlaps with range if it starts before range ends AND
+        # (completes after range starts OR is still ongoing)
+        conditions.append(f"""
+            (p.authorized_date <= '{date_to}')
+            AND (
+                p.target_completion_date >= '{date_from}'
+                OR p.target_completion_date IS NULL
+                OR p.actual_completion_date >= '{date_from}'
+            )
+        """)
+    elif date_from:
+        # Only start date specified
+        conditions.append(f"p.authorized_date >= '{date_from}'")
+    elif date_to:
+        # Only end date specified
         conditions.append(f"p.authorized_date <= '{date_to}'")
 
     where_clause = " AND ".join(conditions) if conditions else "1=1"
@@ -109,6 +198,25 @@ def get_gantt_data():
         if pid not in milestones_by_project:
             milestones_by_project[pid] = []
         milestones_by_project[pid].append(m)
+
+    # BATCH query all status changes for these projects (for status history timeline)
+    status_history_query = f"""
+        SELECT project_id, action, field_name, old_value, new_value, created_at
+        FROM {table_name('audit_logs')}
+        WHERE project_id IN ({ids_list})
+          AND action = 'STATUS_CHANGE'
+          AND field_name = 'status'
+        ORDER BY project_id, created_at ASC
+    """
+    all_status_changes = db.execute(status_history_query)
+
+    # Group status changes by project
+    status_by_project = {}
+    for change in all_status_changes:
+        pid = change["project_id"]
+        if pid not in status_by_project:
+            status_by_project[pid] = []
+        status_by_project[pid].append(change)
 
     # Build Gantt data structure
     gantt_data = []
@@ -182,6 +290,10 @@ def get_gantt_data():
         # Check if project has any overdue milestones
         has_overdue = any(m.get("is_overdue") for m in milestones if not m.get("actual_date"))
 
+        # Build status periods timeline from audit logs
+        status_changes = status_by_project.get(project_id, [])
+        status_periods = build_status_periods(project, status_changes)
+
         gantt_data.append({
             "id": project_id,
             "work_order_number": project["work_order_number"],
@@ -201,7 +313,8 @@ def get_gantt_data():
             "total_milestones": total_milestones,
             "completed_milestones": completed_milestones,
             "has_overdue": has_overdue,
-            "milestones": milestone_bars
+            "milestones": milestone_bars,
+            "status_periods": status_periods  # NEW: Full lifecycle timeline
         })
 
     return jsonify({
