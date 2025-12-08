@@ -4,6 +4,7 @@ bundle:
 sync:
   include:
     - app/**
+    - frontend/dist/**
     - wsgi.py
     - requirements.txt
     - app.yml

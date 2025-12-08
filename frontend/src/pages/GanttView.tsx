@@ -15,6 +15,8 @@ import {
   Tooltip,
   LinearProgress,
   IconButton,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   FilterList as FilterIcon,
@@ -22,6 +24,10 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Today as TodayIcon,
+  ViewWeek as ViewWeekIcon,
+  CalendarMonth as CalendarMonthIcon,
+  DateRange as DateRangeIcon,
+  Timeline as TimelineIcon,
 } from '@mui/icons-material';
 import { useGanttData, useVendors } from '../hooks/useQueries';
 
@@ -95,6 +101,7 @@ export default function GanttView() {
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<FilterState>({});
   const [timeOffset, setTimeOffset] = useState(0); // Weeks offset from current
+  const [viewMode, setViewMode] = useState<'week' | 'month' | 'quarter' | 'full'>('month');
 
   const queryParams = useMemo(() => ({
     ...Object.fromEntries(
@@ -110,25 +117,91 @@ export default function GanttView() {
   const stages = data?.stages || [];
   const vendors = vendorsData?.data || [];
 
-  // Calculate timeline range
+  // Calculate timeline range based on view mode
   const today = new Date();
-  const startOfWeek = new Date(today);
-  startOfWeek.setDate(today.getDate() - today.getDay() + (timeOffset * 7));
 
-  const timelineStart = new Date(startOfWeek);
-  const timelineEnd = new Date(startOfWeek);
-  timelineEnd.setDate(timelineEnd.getDate() + 27); // 4 weeks
+  const { timelineStart, timelineEnd, periodHeaders } = useMemo(() => {
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay());
 
-  // Generate week headers
-  const weekHeaders: { start: Date; label: string }[] = [];
-  for (let i = 0; i < 4; i++) {
-    const weekStart = new Date(timelineStart);
-    weekStart.setDate(weekStart.getDate() + (i * 7));
-    weekHeaders.push({
-      start: new Date(weekStart),
-      label: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    });
-  }
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const startOfQuarter = new Date(today.getFullYear(), Math.floor(today.getMonth() / 3) * 3, 1);
+
+    let start: Date, end: Date, periods: { start: Date; label: string }[] = [];
+
+    if (viewMode === 'week') {
+      start = new Date(startOfWeek);
+      start.setDate(start.getDate() + (timeOffset * 7));
+      end = new Date(start);
+      end.setDate(end.getDate() + 27); // 4 weeks
+
+      for (let i = 0; i < 4; i++) {
+        const weekStart = new Date(start);
+        weekStart.setDate(weekStart.getDate() + (i * 7));
+        periods.push({
+          start: new Date(weekStart),
+          label: weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        });
+      }
+    } else if (viewMode === 'month') {
+      start = new Date(startOfMonth);
+      start.setMonth(start.getMonth() + (timeOffset * 3));
+      end = new Date(start);
+      end.setMonth(end.getMonth() + 3); // 3 months
+
+      for (let i = 0; i < 3; i++) {
+        const monthStart = new Date(start);
+        monthStart.setMonth(monthStart.getMonth() + i);
+        periods.push({
+          start: new Date(monthStart),
+          label: monthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        });
+      }
+    } else if (viewMode === 'quarter') {
+      start = new Date(startOfQuarter);
+      start.setMonth(start.getMonth() + (timeOffset * 12));
+      end = new Date(start);
+      end.setFullYear(end.getFullYear() + 1); // 4 quarters = 1 year
+
+      for (let i = 0; i < 4; i++) {
+        const qtrStart = new Date(start);
+        qtrStart.setMonth(qtrStart.getMonth() + (i * 3));
+        const qtr = Math.floor(qtrStart.getMonth() / 3) + 1;
+        periods.push({
+          start: new Date(qtrStart),
+          label: `Q${qtr} ${qtrStart.getFullYear()}`,
+        });
+      }
+    } else { // 'full'
+      // Show full project lifecycle - find min/max dates from projects
+      const allDates = projects.flatMap(p =>
+        p.status_periods?.map(sp => sp.start_date) || [p.start_date]
+      );
+      start = allDates.length > 0 ? new Date(Math.min(...allDates.map(d => new Date(d).getTime()))) : new Date();
+      end = new Date();
+      end.setDate(end.getDate() + 30); // Show 30 days into future
+
+      // Generate monthly periods for full view
+      const months = Math.ceil((end.getTime() - start.getTime()) / (30 * 24 * 60 * 60 * 1000));
+      for (let i = 0; i < Math.min(months, 12); i++) {
+        const monthStart = new Date(start);
+        monthStart.setMonth(monthStart.getMonth() + i);
+        periods.push({
+          start: new Date(monthStart),
+          label: monthStart.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+        });
+      }
+    }
+
+    return {
+      timelineStart: start,
+      timelineEnd: end,
+      periodHeaders: periods,
+    };
+  }, [viewMode, timeOffset, projects, today]);
+
+  // Backwards compatibility
+  const weekHeaders = periodHeaders;
 
   const handleFilterChange = (key: keyof FilterState, value: string | undefined) => {
     setFilters((prev) => ({ ...prev, [key]: value || undefined }));
@@ -140,6 +213,13 @@ export default function GanttView() {
 
   const goToToday = () => {
     setTimeOffset(0);
+  };
+
+  const handleViewModeChange = (_: React.MouseEvent<HTMLElement>, newMode: 'week' | 'month' | 'quarter' | 'full' | null) => {
+    if (newMode !== null) {
+      setViewMode(newMode);
+      setTimeOffset(0); // Reset to current period when switching modes
+    }
   };
 
   // Calculate bar position and width for a project
@@ -323,32 +403,83 @@ export default function GanttView() {
 
       {/* Timeline Navigation */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={() => setTimeOffset(timeOffset - 4)}>
-              <ChevronLeftIcon />
-            </IconButton>
-            <Button startIcon={<TodayIcon />} onClick={goToToday}>
-              Today
-            </Button>
-            <IconButton onClick={() => setTimeOffset(timeOffset + 4)}>
-              <ChevronRightIcon />
-            </IconButton>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* View Mode Toggle */}
+          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={handleViewModeChange}
+              size="small"
+              aria-label="timeline view mode"
+            >
+              <ToggleButton value="week" aria-label="weekly view">
+                <Tooltip title="Weekly View (4 weeks)">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <ViewWeekIcon fontSize="small" />
+                    <Typography variant="caption">Week</Typography>
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="month" aria-label="monthly view">
+                <Tooltip title="Monthly View (3 months)">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <CalendarMonthIcon fontSize="small" />
+                    <Typography variant="caption">Month</Typography>
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="quarter" aria-label="quarterly view">
+                <Tooltip title="Quarterly View (1 year)">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <DateRangeIcon fontSize="small" />
+                    <Typography variant="caption">Quarter</Typography>
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="full" aria-label="full timeline view">
+                <Tooltip title="Full Timeline (All projects)">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <TimelineIcon fontSize="small" />
+                    <Typography variant="caption">Full</Typography>
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
           </Box>
-          <Typography variant="body2" color="text.secondary">
-            {timelineStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-            {' - '}
-            {timelineEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {stages.slice(0, 4).map((stage: { id: string; label: string }) => (
-              <Chip
-                key={stage.id}
-                size="small"
-                label={stage.label}
-                sx={{ bgcolor: STATUS_COLORS[stage.id] || '#ccc', color: 'white', fontSize: '0.7rem' }}
-              />
-            ))}
+
+          {/* Navigation and Date Range */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              {viewMode !== 'full' && (
+                <>
+                  <IconButton onClick={() => setTimeOffset(timeOffset - 1)}>
+                    <ChevronLeftIcon />
+                  </IconButton>
+                  <Button startIcon={<TodayIcon />} onClick={goToToday}>
+                    Today
+                  </Button>
+                  <IconButton onClick={() => setTimeOffset(timeOffset + 1)}>
+                    <ChevronRightIcon />
+                  </IconButton>
+                </>
+              )}
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {timelineStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+              {' - '}
+              {timelineEnd.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+              {stages.map((stage: { id: string; label: string }) => (
+                <Chip
+                  key={stage.id}
+                  size="small"
+                  label={stage.label}
+                  sx={{ bgcolor: STATUS_COLORS[stage.id] || '#ccc', color: 'white', fontSize: '0.7rem' }}
+                />
+              ))}
+            </Box>
           </Box>
         </Box>
       </Paper>
